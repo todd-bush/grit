@@ -4,7 +4,6 @@ extern crate scoped_threadpool;
 extern crate simple_logger;
 
 mod fame;
-mod git_graph;
 
 use docopt::Docopt;
 use git2::Error;
@@ -14,6 +13,7 @@ use std::str;
 
 #[derive(Deserialize)]
 struct Args {
+    arg_command: String,
     flag_branch: Option<String>,
     flag_debug: bool,
     flag_sort: Option<String>,
@@ -25,9 +25,13 @@ pub const DEFAULT_THREADS: usize = 10;
 
 const USAGE: &str = "
 Usage:
-    grit_fame [options]
+    grit [cmd][options]
 
-Options:
+Command:
+    fame: produces counts by commit author
+    bydate: produces commit counts between two specific dates.
+
+Global Options:
     --branch=<string>   banch to use, defaults to current HEAD
     --debug             enables debug
     -h, --help          displays help
@@ -61,7 +65,14 @@ fn run(args: &Args) -> Result<(), Error> {
 
     simple_logger::init_with_level(level).unwrap();
 
-    fame::process_repo(path, branch, args.flag_sort.clone(), threads)
+    let result = match args.arg_command.as_str() {
+        "fame" => {
+            fame::process_repo(path, branch, args.flag_sort.clone(), threads);
+        }
+        _ => println!("Only valid commands are fame and bydate"),
+    };
+
+    Ok(result)
 }
 
 fn main() {
