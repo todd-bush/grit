@@ -1,6 +1,7 @@
 #[macro_use]
 use git2::{Error, Repository, Time};
-use chrono::{Datelike, NaiveDateTime, Utc};
+use chrono::naive::{MAX_DATE, MIN_DATE};
+use chrono::{Datelike, NaiveDateTime};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct ByDate {
@@ -8,9 +9,22 @@ struct ByDate {
     count: i32,
 }
 
-fn by_date(repo_path: &str) -> Result<(), Error> {
+fn by_date(
+    repo_path: &str,
+    start_date: Option<NaiveDateTime>,
+    end_date: Option<NaiveDateTime>,
+) -> Result<(), Error> {
     let repo = Repository::open(repo_path).expect("Could not open repository");
-    let now = Utc::now();
+
+    let end_date = match end_date {
+        Some(d) => d,
+        None => MAX_DATE.and_hms(0, 0, 0),
+    };
+
+    let start_date = match start_date {
+        Some(d) => d,
+        None => MIN_DATE.and_hms(0, 0, 0),
+    };
 
     let mut revwalk = repo.revwalk()?;
     revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME);
@@ -33,7 +47,11 @@ fn by_date(repo_path: &str) -> Result<(), Error> {
         let commit = filter_try!(repo.find_commit(id));
         let commit_time = commit.time().seconds();
 
-        if commit_time > now.timestamp() {
+        if commit_time < start_date.timestamp() {
+            return None;
+        }
+
+        if commit_time > end_date.timestamp() {
             return None;
         }
 
@@ -63,15 +81,36 @@ mod tests {
     use std::time::Instant;
 
     #[test]
-    fn test_by_date() {
-        simple_logger::init_with_level(Level::Info).unwrap();
+    fn test_by_date_no_ends() {
+        simple_logger::init_with_level(Level::Info).unwrap_or({});
         let start = Instant::now();
 
-        let _result = match by_date(".") {
+        let _result = match by_date(".", None, None) {
             Ok(()) => true,
             Err(_e) => false,
         };
 
-        println!("completed test_by_date in {:?}", start.elapsed());
+        println!("completed test_by_date_no_ends in {:?}", start.elapsed());
+    }
+
+    #[test]
+    fn test_by_date_end_date_only() {
+        simple_logger::init_with_level(Level::Info).unwrap_or({});
+
+        let ed = NaiveDateTime::parse_from_str("2020-03-26 23:59:59", "%Y-%m-%d %H:%M:%S");
+
+        println!("{:?}", ed);
+
+        let start = Instant::now();
+
+        let _result = match by_date(".", None, Some(ed.unwrap())) {
+            Ok(()) => true,
+            Err(_e) => false,
+        };
+
+        println!(
+            "completed test_by_date_end_date_only in {:?}",
+            start.elapsed()
+        );
     }
 }
