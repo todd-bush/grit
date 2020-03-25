@@ -1,6 +1,6 @@
 #[macro_use]
-use git2::{Error, Repository};
-use chrono::Utc;
+use git2::{Error, Repository, Time};
+use chrono::{Datelike, NaiveDateTime, Utc};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct ByDate {
@@ -45,10 +45,15 @@ fn by_date(repo_path: &str) -> Result<(), Error> {
     for commit in revwalk {
         let commit = commit?;
         let commit_time = &commit.time();
-        info!("commit time {}", commit_time.seconds());
+        let dt = convert_git_time(commit_time);
+        info!("commit time {}-{}-{}", dt.year(), dt.month(), dt.day());
     }
 
     Ok(())
+}
+
+fn convert_git_time(time: &Time) -> NaiveDateTime {
+    NaiveDateTime::from_timestamp(time.seconds(), 0)
 }
 
 #[cfg(test)]
