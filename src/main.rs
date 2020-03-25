@@ -1,8 +1,10 @@
 #[macro_use]
 extern crate log;
+extern crate chrono;
 extern crate scoped_threadpool;
 extern crate simple_logger;
 
+mod by_date;
 mod fame;
 
 use docopt::Docopt;
