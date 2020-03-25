@@ -19,7 +19,7 @@ impl ByDate {
     }
 }
 
-fn by_date(
+pub fn by_date(
     repo_path: &str,
     start_date: Option<NaiveDateTime>,
     end_date: Option<NaiveDateTime>,
@@ -94,7 +94,10 @@ fn by_date(
 
     output.sort();
 
-    display_output(output);
+    match display_output(output) {
+        Ok(_v) => {}
+        Err(e) => error!("Error thrown in display_output {:?}", e),
+    };
 
     Ok(())
 }
@@ -143,8 +146,6 @@ mod tests {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or({});
 
         let ed = NaiveDateTime::parse_from_str("2020-03-26 23:59:59", "%Y-%m-%d %H:%M:%S");
-
-        println!("{:?}", ed);
 
         let start = Instant::now();
 
