@@ -1,7 +1,6 @@
 #[macro_use]
 use git2::{Error, Repository};
 use chrono::Utc;
-use std::time::Instant;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct ByDate {
@@ -14,7 +13,8 @@ fn by_date(repo_path: &str) -> Result<(), Error> {
     let now = Utc::now();
 
     let mut revwalk = repo.revwalk()?;
-    revwalk.set_sorting(git2::Sort::TIME);
+    revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME);
+    revwalk.push_head()?;
 
     macro_rules! filter_try {
         ($e:expr) => {
@@ -29,6 +29,7 @@ fn by_date(repo_path: &str) -> Result<(), Error> {
 
     let revwalk = revwalk.filter_map(|id| {
         let id = filter_try!(id);
+        debug!("commit id {}", id);
         let commit = filter_try!(repo.find_commit(id));
         let commit_time = commit.time().seconds();
 
@@ -43,7 +44,7 @@ fn by_date(repo_path: &str) -> Result<(), Error> {
 
     for commit in revwalk {
         let commit = commit?;
-        let commit_time = commit.time();
+        let commit_time = &commit.time();
         info!("commit time {}", commit_time.seconds());
     }
 
@@ -54,15 +55,18 @@ fn by_date(repo_path: &str) -> Result<(), Error> {
 mod tests {
     use super::*;
     use log::Level;
+    use std::time::Instant;
 
     #[test]
     fn test_by_date() {
-        simple_logger::init_with_level(Level::Debug).unwrap();
+        simple_logger::init_with_level(Level::Info).unwrap();
         let start = Instant::now();
 
-        let result = match by_date(".") {
+        let _result = match by_date(".") {
             Ok(()) => true,
             Err(_e) => false,
         };
+
+        println!("completed test_by_date in {:?}", start.elapsed());
     }
 }
