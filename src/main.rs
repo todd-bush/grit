@@ -72,6 +72,8 @@ fn run(args: &Args) -> Result<(), Error> {
         Some(b) => *b,
     };
 
+    let 
+
     simple_logger::init_with_level(level).unwrap();
 
     let result = if args.cmd_fame {
