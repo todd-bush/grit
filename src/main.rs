@@ -8,6 +8,7 @@ extern crate simple_logger;
 mod by_date;
 mod fame;
 
+use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use docopt::Docopt;
 use git2::Error;
 use log::Level;
@@ -21,6 +22,8 @@ struct Args {
     flag_sort: Option<String>,
     flag_threads: Option<usize>,
     flag_verbose: bool,
+    flag_start_date: Option<String>,
+    flag_end_date: Option<String>,
     cmd_fame: bool,
     cmd_bydate: bool,
 }
@@ -31,8 +34,8 @@ const USAGE: &str = "
 Grit.
 
 Usage:
-    grit fame [--branch=<string>] [--sort=<field>]
-    grit bydate [--branch=<string>] [--start_date=<string>] [--end_date=<string>]
+    grit fame [--branch=<string>] [--sort=<field>] [--debug]
+    grit bydate [--branch=<string>] [--start-date=<string>] [--end-date=<string>] [--debug]
 
 Command:
     fame: produces counts by commit author
@@ -44,8 +47,8 @@ Options:
     -h, --help                  displays help
     --sort=<field>              sort field, either 'commit' (default), 'loc', 'files'
     --threads=<number>          number of concurrent processing threads, default is 10
-    --start_date=<string>       start date for bydate in YYYY-MM-DD format.
-    --end_date=<string>         end date for bydate in YYYY-MM-DD format.
+    --start-date=<string>       start date for bydate in YYYY-MM-DD format.
+    --end-date=<string>         end date for bydate in YYYY-MM-DD format.
     --verbose
 ";
 
@@ -61,6 +64,8 @@ fn run(args: &Args) -> Result<(), Error> {
         Level::Error
     };
 
+    simple_logger::init_with_level(level).unwrap();
+
     let branch = args
         .flag_branch
         .as_ref()
@@ -72,14 +77,33 @@ fn run(args: &Args) -> Result<(), Error> {
         Some(b) => *b,
     };
 
-    let 
+    let start_date: Option<NaiveDateTime> = match &args.flag_start_date {
+        Some(b) => {
+            let dt = NaiveDate::parse_from_str(b, "%Y-%m-%d")
+                .unwrap()
+                .and_hms(0, 0, 0);
+            Some(dt)
+        }
+        None => None,
+    };
 
-    simple_logger::init_with_level(level).unwrap();
+    let end_date: Option<NaiveDateTime> = match &args.flag_end_date {
+        Some(d) => {
+            let dt = NaiveDate::parse_from_str(d, "%Y-%m-%d")
+                .unwrap()
+                .and_hms(23, 59, 59);
+            Some(dt)
+        }
+        None => None,
+    };
+
+    debug!("start_date set to {:?}", start_date);
+    debug!("end_date set to {:?}", end_date);
 
     let result = if args.cmd_fame {
         fame::process_repo(path, branch, args.flag_sort.clone(), threads);
     } else if args.cmd_bydate {
-        by_date::by_date(path, None, None);
+        by_date::by_date(path, start_date, end_date);
     };
 
     Ok(result)
