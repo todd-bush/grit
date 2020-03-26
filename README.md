@@ -22,6 +22,23 @@ Options:
     --verbose
 ```
 
+# Output
+
+```grit bydate``` will create a csv of date and commit count to stdout.
+
+```grit fame``` will create a table of metrics per author.
+
+## Example
+
+```
++-----------+-------+---------+------+-----------------------+
+| Author    | Files | Commits | LOC  | Distribution (%)      |
++-----------+-------+---------+------+-----------------------+
+| Todd Bush | 5     | 37      | 1178 | 100.0 / 97.4  / 99.9  |
+| todd-bush | 1     | 1       | 1    | 20.0  / 2.6   / 0.1   |
++-----------+-------+---------+------+-----------------------+
+```
+
 License
 -------
 
