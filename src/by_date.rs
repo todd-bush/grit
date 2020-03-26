@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_by_date_no_ends() {
-        simple_logger::init_with_level(LOG_LEVEL).unwrap_or({});
+        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
         let start = Instant::now();
 
         let _result = match by_date(".", None, None) {
@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn test_by_date_end_date_only() {
-        simple_logger::init_with_level(LOG_LEVEL).unwrap_or({});
+        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
         let ed = NaiveDateTime::parse_from_str("2020-03-26 23:59:59", "%Y-%m-%d %H:%M:%S");
 
