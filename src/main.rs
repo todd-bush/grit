@@ -8,6 +8,7 @@ extern crate simple_logger;
 mod by_date;
 mod fame;
 
+use crate::by_date::ByDateArgs;
 use chrono::{Datelike, NaiveDate, NaiveDateTime};
 use docopt::Docopt;
 use git2::Error;
@@ -103,7 +104,8 @@ fn run(args: &Args) -> Result<(), Error> {
     let result = if args.cmd_fame {
         fame::process_repo(path, branch, args.flag_sort.clone(), threads);
     } else if args.cmd_bydate {
-        by_date::by_date(path, start_date, end_date);
+        let by_date_args = ByDateArgs::new(start_date, end_date);
+        by_date::by_date(path, by_date_args);
     };
 
     Ok(result)

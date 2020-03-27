@@ -19,17 +19,27 @@ impl ByDate {
     }
 }
 
-pub fn by_date(
-    repo_path: &str,
+pub struct ByDateArgs {
     start_date: Option<NaiveDateTime>,
     end_date: Option<NaiveDateTime>,
-) -> Result<(), Error> {
-    let end_date = match end_date {
+}
+
+impl ByDateArgs {
+    pub fn new(start_date: Option<NaiveDateTime>, end_date: Option<NaiveDateTime>) -> Self {
+        ByDateArgs {
+            start_date,
+            end_date,
+        }
+    }
+}
+
+pub fn by_date(repo_path: &str, args: ByDateArgs) -> Result<(), Error> {
+    let end_date = match args.end_date {
         Some(d) => d,
         None => MAX_DATE.and_hms(0, 0, 0),
     };
 
-    let start_date = match start_date {
+    let start_date = match args.start_date {
         Some(d) => d,
         None => MIN_DATE.and_hms(0, 0, 0),
     };
@@ -133,7 +143,9 @@ mod tests {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
         let start = Instant::now();
 
-        let _result = match by_date(".", None, None) {
+        let args = ByDateArgs::new(None, None);
+
+        let _result = match by_date(".", args) {
             Ok(()) => true,
             Err(_e) => false,
         };
@@ -147,9 +159,11 @@ mod tests {
 
         let ed = NaiveDateTime::parse_from_str("2020-03-26 23:59:59", "%Y-%m-%d %H:%M:%S");
 
+        let args = ByDateArgs::new(None, Some(ed.unwrap()));
+
         let start = Instant::now();
 
-        let _result = match by_date(".", None, Some(ed.unwrap())) {
+        let _result = match by_date(".", args) {
             Ok(()) => true,
             Err(_e) => false,
         };
