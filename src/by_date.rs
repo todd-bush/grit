@@ -3,6 +3,7 @@ use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::{Datelike, NaiveDateTime};
 use csv::Writer;
 use git2::{Error, Repository, Time};
+use plotters::prelude::*;
 use std::boxed::Box;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
@@ -43,12 +44,26 @@ impl ByDateArgs {
 }
 
 pub fn by_date(repo_path: &str, args: ByDateArgs) -> Result<(), Error> {
-    let end_date = match args.end_date {
+    let output = process_date(repo_path, args.start_date, args.end_date)?;
+    match display_output(output, args.file) {
+        Ok(_v) => {}
+        Err(e) => error!("Error thrown in display_output {:?}", e),
+    };
+
+    Ok(())
+}
+
+fn process_date(
+    repo_path: &str,
+    start_date: Option<NaiveDateTime>,
+    end_date: Option<NaiveDateTime>,
+) -> Result<Vec<ByDate>, Error> {
+    let end_date = match end_date {
         Some(d) => d,
         None => MAX_DATE.and_hms(0, 0, 0),
     };
 
-    let start_date = match args.start_date {
+    let start_date = match start_date {
         Some(d) => d,
         None => MIN_DATE.and_hms(0, 0, 0),
     };
@@ -113,12 +128,7 @@ pub fn by_date(repo_path: &str, args: ByDateArgs) -> Result<(), Error> {
 
     output.sort();
 
-    match display_output(output, args.file) {
-        Ok(_v) => {}
-        Err(e) => error!("Error thrown in display_output {:?}", e),
-    };
-
-    Ok(())
+    Ok(output)
 }
 
 fn convert_git_time(time: &Time) -> NaiveDateTime {
@@ -146,6 +156,43 @@ fn display_output(
     });
 
     wtr.flush()?;
+
+    Ok(())
+}
+
+fn create_output_image(
+    output: Vec<ByDate>,
+    file: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = BitMapBackend::new(&file, (1024, 768)).into_drawing_area();
+    root.fill(&WHITE);
+
+    let mut chart = ChartBuilder::on(&root)
+        .x_label_area_size(35)
+        .y_label_area_size(40)
+        .margin(5)
+        .caption("Commits by Date", ("sans-serif", 50.0).into_font())
+        .build_ranged(0f32..10f32, LogRange(0.1f32..1e10f32))?;
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .disable_y_axis()
+        .y_desc("Commits")
+        .y_label_formatter(&|y| format!("{:e}", y))
+        .draw()?;
+
+    chart.draw_series(LineSeries::new(
+        output.iter().map(|db| (1_f32, db.count as f32)),
+        &BLUE,
+    ))?;
+
+    // chart
+    //     .draw_series(LineSeries::new(
+    //         output.iter().map(|db| (db.date, db.count)),
+    //         Into::<ShapeStyle>::into(&RED).stroke_width(3),
+    //     ))
+    //     .expect("Drawing Error");
 
     Ok(())
 }
