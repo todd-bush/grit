@@ -1,6 +1,7 @@
 #[macro_use]
 use chrono::naive::{MAX_DATE, MIN_DATE};
-use chrono::{Datelike, NaiveDateTime};
+use chrono::offset::{Local, TimeZone};
+use chrono::{Date, Datelike, NaiveDateTime};
 use csv::Writer;
 use git2::{Error, Repository, Time};
 use plotters::prelude::*;
@@ -165,25 +166,36 @@ fn create_output_image(
     file: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let root = BitMapBackend::new(&file, (1024, 768)).into_drawing_area();
-    root.fill(&WHITE);
+    root.fill(&WHITE)?;
+
+    let (from_date, to_date) = (
+        parse_time(&output[0].date),
+        parse_time(&output.last().unwrap().date),
+    );
+
+    let max_count_obj = output.iter().max_by(|x, y| x.count.cmp(&y.count));
+
+    let max_count = max_count_obj.unwrap().count as f32 + 5.0;
 
     let mut chart = ChartBuilder::on(&root)
         .x_label_area_size(35)
         .y_label_area_size(40)
         .margin(5)
         .caption("Commits by Date", ("sans-serif", 50.0).into_font())
-        .build_ranged(0f32..10f32, LogRange(0.1f32..1e10f32))?;
+        .build_ranged(from_date..to_date, 0f32..max_count)?;
 
     chart
         .configure_mesh()
         .disable_x_mesh()
         .disable_y_axis()
         .y_desc("Commits")
-        .y_label_formatter(&|y| format!("{:e}", y))
+        .y_label_formatter(&|y| format!("{}", y))
         .draw()?;
 
     chart.draw_series(LineSeries::new(
-        output.iter().map(|db| (1_f32, db.count as f32)),
+        output
+            .iter()
+            .map(|db| (parse_time(&db.date), db.count as f32)),
         &BLUE,
     ))?;
 
@@ -195,6 +207,13 @@ fn create_output_image(
     //     .expect("Drawing Error");
 
     Ok(())
+}
+
+fn parse_time(t: &str) -> Date<Local> {
+    Local
+        .datetime_from_str(&format!("{} 0:0", t), "%Y-%m-%d %H:%M")
+        .unwrap()
+        .date()
 }
 
 #[cfg(test)]
@@ -237,6 +256,24 @@ mod tests {
 
         println!(
             "completed test_by_date_end_date_only in {:?}",
+            start.elapsed()
+        );
+    }
+
+    #[test]
+    fn test_by_date_end_date_only_image() {
+        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+
+        let ed = NaiveDateTime::parse_from_str("2020-03-26 23:59:59", "%Y-%m-%d %H:%M:%S");
+
+        let start = Instant::now();
+
+        let output = process_date(".", None, Some(ed.unwrap()));
+
+        create_output_image(output.unwrap(), "test_image.png".to_string());
+
+        println!(
+            "completed test_by_date_end_date_only_image in {:?}",
             start.elapsed()
         );
     }
