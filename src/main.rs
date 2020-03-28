@@ -9,7 +9,7 @@ mod by_date;
 mod fame;
 
 use crate::by_date::ByDateArgs;
-use chrono::{Datelike, NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime};
 use docopt::Docopt;
 use git2::Error;
 use log::Level;
@@ -25,6 +25,7 @@ struct Args {
     flag_verbose: bool,
     flag_start_date: Option<String>,
     flag_end_date: Option<String>,
+    flag_file: Option<String>,
     cmd_fame: bool,
     cmd_bydate: bool,
 }
@@ -36,7 +37,7 @@ Grit.
 
 Usage:
     grit fame [--branch=<string>] [--sort=<field>] [--debug]
-    grit bydate [--branch=<string>] [--start-date=<string>] [--end-date=<string>] [--debug]
+    grit bydate [--branch=<string>] [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--debug]
 
 Command:
     fame: produces counts by commit author
@@ -50,6 +51,7 @@ Options:
     --threads=<number>          number of concurrent processing threads, default is 10
     --start-date=<string>       start date for bydate in YYYY-MM-DD format.
     --end-date=<string>         end date for bydate in YYYY-MM-DD format.
+    --file=<string>             output file for the by date file.  Sends to stdout by default
     --verbose
 ";
 
@@ -73,42 +75,39 @@ fn run(args: &Args) -> Result<(), Error> {
         .map(|s| &s[..])
         .unwrap_or("master");
 
-    let threads: usize = match &args.flag_threads {
-        None => DEFAULT_THREADS,
-        Some(b) => *b,
-    };
+    if args.cmd_fame {
+        let threads: usize = match &args.flag_threads {
+            None => DEFAULT_THREADS,
+            Some(b) => *b,
+        };
 
-    let start_date: Option<NaiveDateTime> = match &args.flag_start_date {
-        Some(b) => {
-            let dt = NaiveDate::parse_from_str(b, "%Y-%m-%d")
-                .unwrap()
-                .and_hms(0, 0, 0);
-            Some(dt)
-        }
-        None => None,
-    };
-
-    let end_date: Option<NaiveDateTime> = match &args.flag_end_date {
-        Some(d) => {
-            let dt = NaiveDate::parse_from_str(d, "%Y-%m-%d")
-                .unwrap()
-                .and_hms(23, 59, 59);
-            Some(dt)
-        }
-        None => None,
-    };
-
-    debug!("start_date set to {:?}", start_date);
-    debug!("end_date set to {:?}", end_date);
-
-    let result = if args.cmd_fame {
-        fame::process_repo(path, branch, args.flag_sort.clone(), threads);
+        fame::process_repo(path, branch, args.flag_sort.clone(), threads)?;
     } else if args.cmd_bydate {
-        let by_date_args = ByDateArgs::new(start_date, end_date);
-        by_date::by_date(path, by_date_args);
+        let start_date: Option<NaiveDateTime> = match &args.flag_start_date {
+            Some(b) => {
+                let dt = NaiveDate::parse_from_str(b, "%Y-%m-%d")
+                    .unwrap()
+                    .and_hms(0, 0, 0);
+                Some(dt)
+            }
+            None => None,
+        };
+
+        let end_date: Option<NaiveDateTime> = match &args.flag_end_date {
+            Some(d) => {
+                let dt = NaiveDate::parse_from_str(d, "%Y-%m-%d")
+                    .unwrap()
+                    .and_hms(23, 59, 59);
+                Some(dt)
+            }
+            None => None,
+        };
+
+        let by_date_args = ByDateArgs::new(start_date, end_date, args.flag_file.clone());
+        by_date::by_date(path, by_date_args)?;
     };
 
-    Ok(result)
+    Ok(())
 }
 
 fn main() {

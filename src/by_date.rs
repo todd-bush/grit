@@ -3,9 +3,12 @@ use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::{Datelike, NaiveDateTime};
 use csv::Writer;
 use git2::{Error, Repository, Time};
+use std::boxed::Box;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
+use std::fs::File;
 use std::io;
+use std::io::Write;
 
 #[derive(Ord, Debug, PartialEq, Eq, PartialOrd)]
 struct ByDate {
@@ -22,13 +25,19 @@ impl ByDate {
 pub struct ByDateArgs {
     start_date: Option<NaiveDateTime>,
     end_date: Option<NaiveDateTime>,
+    file: Option<String>,
 }
 
 impl ByDateArgs {
-    pub fn new(start_date: Option<NaiveDateTime>, end_date: Option<NaiveDateTime>) -> Self {
+    pub fn new(
+        start_date: Option<NaiveDateTime>,
+        end_date: Option<NaiveDateTime>,
+        file: Option<String>,
+    ) -> Self {
         ByDateArgs {
             start_date,
             end_date,
+            file,
         }
     }
 }
@@ -104,7 +113,7 @@ pub fn by_date(repo_path: &str, args: ByDateArgs) -> Result<(), Error> {
 
     output.sort();
 
-    match display_output(output) {
+    match display_output(output, args.file) {
         Ok(_v) => {}
         Err(e) => error!("Error thrown in display_output {:?}", e),
     };
@@ -116,8 +125,19 @@ fn convert_git_time(time: &Time) -> NaiveDateTime {
     NaiveDateTime::from_timestamp(time.seconds(), 0)
 }
 
-fn display_output(output: Vec<ByDate>) -> Result<(), Box<dyn std::error::Error>> {
-    let mut wtr = Writer::from_writer(io::stdout());
+fn display_output(
+    output: Vec<ByDate>,
+    file: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let w = match file {
+        Some(f) => {
+            let file = File::create(f)?;
+            Box::new(file) as Box<dyn Write>
+        }
+        None => Box::new(io::stdout()) as Box<dyn Write>,
+    };
+
+    let mut wtr = Writer::from_writer(w);
 
     wtr.write_record(&["date", "count"])?;
 
@@ -143,7 +163,7 @@ mod tests {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
         let start = Instant::now();
 
-        let args = ByDateArgs::new(None, None);
+        let args = ByDateArgs::new(None, None, None);
 
         let _result = match by_date(".", args) {
             Ok(()) => true,
@@ -159,7 +179,7 @@ mod tests {
 
         let ed = NaiveDateTime::parse_from_str("2020-03-26 23:59:59", "%Y-%m-%d %H:%M:%S");
 
-        let args = ByDateArgs::new(None, Some(ed.unwrap()));
+        let args = ByDateArgs::new(None, Some(ed.unwrap()), None);
 
         let start = Instant::now();
 
