@@ -26,6 +26,7 @@ struct Args {
     flag_start_date: Option<String>,
     flag_end_date: Option<String>,
     flag_file: Option<String>,
+    flag_image: bool,
     cmd_fame: bool,
     cmd_bydate: bool,
 }
@@ -37,7 +38,7 @@ Grit.
 
 Usage:
     grit fame [--branch=<string>] [--sort=<field>] [--debug]
-    grit bydate [--branch=<string>] [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--debug]
+    grit bydate [--branch=<string>] [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image][--debug]
 
 Command:
     fame: produces counts by commit author
@@ -52,6 +53,7 @@ Options:
     --start-date=<string>       start date for bydate in YYYY-MM-DD format.
     --end-date=<string>         end date for bydate in YYYY-MM-DD format.
     --file=<string>             output file for the by date file.  Sends to stdout by default
+    --test_image                creates an image for the by_date graph.  file is required
     --verbose
 ";
 
@@ -103,7 +105,19 @@ fn run(args: &Args) -> Result<(), Error> {
             None => None,
         };
 
-        let by_date_args = ByDateArgs::new(start_date, end_date, args.flag_file.clone());
+        if args.flag_image {
+            match args.flag_file {
+                None => panic!("File is requird when selecting image"),
+                Some(_) => (),
+            }
+        }
+
+        let by_date_args = ByDateArgs::new(
+            start_date,
+            end_date,
+            args.flag_file.clone(),
+            args.flag_image,
+        );
         by_date::by_date(path, by_date_args)?;
     };
 

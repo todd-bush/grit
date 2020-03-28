@@ -5,7 +5,7 @@ Grit is a git repository analyzer written in [Rust](https://github.om/rust-lang)
 ```
 Usage:
     grit fame [--branch=<string>] [--sort=<field>] [--debug]
-    grit bydate [--branch=<string>] [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--debug]
+    grit bydate [--branch=<string>] [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image][--debug]
 
 Command:
     fame: produces counts by commit author
@@ -20,12 +20,13 @@ Options:
     --start-date=<string>       start date for bydate in YYYY-MM-DD format.
     --end-date=<string>         end date for bydate in YYYY-MM-DD format.
     --file=<string>             output file for the by date file.  Sends to stdout by default
+    --test_image                creates an image for the by_date graph.  file is required
     --verbose
 ```
 
 # Output
 
-```grit bydate``` will create a csv of date and commit count to stdout.
+```grit bydate``` will create a csv of date and commit count to stdout or file.  Option to produce image.
 
 ```grit fame``` will create a table of metrics per author.
 

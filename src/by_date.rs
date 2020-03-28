@@ -28,6 +28,7 @@ pub struct ByDateArgs {
     start_date: Option<NaiveDateTime>,
     end_date: Option<NaiveDateTime>,
     file: Option<String>,
+    image: bool,
 }
 
 impl ByDateArgs {
@@ -35,21 +36,34 @@ impl ByDateArgs {
         start_date: Option<NaiveDateTime>,
         end_date: Option<NaiveDateTime>,
         file: Option<String>,
+        image: bool,
     ) -> Self {
         ByDateArgs {
             start_date,
             end_date,
             file,
+            image,
         }
     }
 }
 
 pub fn by_date(repo_path: &str, args: ByDateArgs) -> Result<(), Error> {
     let output = process_date(repo_path, args.start_date, args.end_date)?;
-    match display_output(output, args.file) {
-        Ok(_v) => {}
-        Err(e) => error!("Error thrown in display_output {:?}", e),
-    };
+
+    if args.image {
+        match create_output_image(
+            output,
+            args.file.unwrap_or_else(|| "commits.png".to_string()),
+        ) {
+            Ok(_) => {}
+            Err(e) => error!("Error thrown while creating image {:?}", e),
+        }
+    } else {
+        match display_output(output, args.file) {
+            Ok(_v) => {}
+            Err(e) => error!("Error thrown in display_output {:?}", e),
+        };
+    }
 
     Ok(())
 }
@@ -229,7 +243,7 @@ mod tests {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
         let start = Instant::now();
 
-        let args = ByDateArgs::new(None, None, None);
+        let args = ByDateArgs::new(None, None, None, false);
 
         let _result = match by_date(".", args) {
             Ok(()) => true,
@@ -245,7 +259,7 @@ mod tests {
 
         let ed = NaiveDateTime::parse_from_str("2020-03-26 23:59:59", "%Y-%m-%d %H:%M:%S");
 
-        let args = ByDateArgs::new(None, Some(ed.unwrap()), None);
+        let args = ByDateArgs::new(None, Some(ed.unwrap()), None, false);
 
         let start = Instant::now();
 
