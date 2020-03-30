@@ -4,15 +4,14 @@ Grit is a git repository analyzer written in [Rust](https://github.om/rust-lang)
 # Usage
 ```
 Usage:
-    grit fame [--branch=<string>] [--sort=<field>] [--debug]
-    grit bydate [--branch=<string>] [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image][--debug]
+    grit fame [--sort=<field>] [--debug]
+    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--debug]
 
 Command:
     fame: produces counts by commit author
     bydate: produces commit counts between two specific dates.
 
 Options:
-    --branch=<string>           branch to use, defaults to current HEAD
     --debug                     enables debug
     -h, --help                  displays help
     --sort=<field>              sort field, either 'commit' (default), 'loc', 'files'

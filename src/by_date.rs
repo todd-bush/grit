@@ -2,7 +2,7 @@
 use chrono::DateTime;
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::offset::{Local, TimeZone};
-use chrono::{Date, Datelike, NaiveDate, NaiveDateTime};
+use chrono::{Date, Datelike, NaiveDateTime};
 use csv::Writer;
 use git2::{Error, Repository, Time};
 use plotters::prelude::*;
@@ -239,6 +239,7 @@ fn parse_time(t: &str) -> Date<Local> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::NaiveDate;
     use log::Level;
     use std::time::Instant;
 

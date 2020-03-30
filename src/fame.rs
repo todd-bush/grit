@@ -121,12 +121,7 @@ fn process_blame(repo_path: &str, path: Arc<&Path>) -> Result<Vec<BlameOutputFil
     Ok(result)
 }
 
-pub fn process_repo(
-    repo_path: &str,
-    _branch: &str,
-    sort: Option<String>,
-    threads: usize,
-) -> Result<(), Error> {
+pub fn process_repo(repo_path: &str, sort: Option<String>, threads: usize) -> Result<(), Error> {
     let repo = Repository::open(repo_path)?;
 
     let mut opts = StatusOptions::new();
@@ -243,11 +238,11 @@ mod tests {
 
     #[test]
     fn test_process_repo_custom_threads() {
-        simple_logger::init_with_level(Level::Info).unwrap();
+        simple_logger::init_with_level(Level::Info).unwrap_or(());
 
         let start = Instant::now();
 
-        let result = match process_repo(".", "master", Some("loc".to_string()), 5) {
+        let result = match process_repo(".", Some("loc".to_string()), 5) {
             Ok(()) => true,
             Err(_e) => {
                 error!("Error {}", _e);
@@ -268,9 +263,10 @@ mod tests {
 
     #[test]
     fn test_process_repo_default_threads() {
+        simple_logger::init_with_level(Level::Info).unwrap_or(());
         let start = Instant::now();
 
-        let result = match process_repo(".", "master", Some("loc".to_string()), DEFAULT_THREADS) {
+        let result = match process_repo(".", Some("loc".to_string()), DEFAULT_THREADS) {
             Ok(()) => true,
             Err(_e) => false,
         };

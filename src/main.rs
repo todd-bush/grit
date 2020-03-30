@@ -19,7 +19,6 @@ use std::str;
 
 #[derive(Debug, Deserialize)]
 struct Args {
-    flag_branch: Option<String>,
     flag_debug: bool,
     flag_sort: Option<String>,
     flag_threads: Option<usize>,
@@ -38,15 +37,14 @@ const USAGE: &str = "
 Grit.
 
 Usage:
-    grit fame [--branch=<string>] [--sort=<field>] [--debug]
-    grit bydate [--branch=<string>] [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--debug]
+    grit fame [--sort=<field>] [--debug]
+    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--debug]
 
 Command:
     fame: produces counts by commit author
     bydate: produces commit counts between two specific dates.
 
 Options:
-    --branch=<string>           branch to use, defaults to current HEAD
     --debug                     enables debug
     -h, --help                  displays help
     --sort=<field>              sort field, either 'commit' (default), 'loc', 'files'
@@ -72,19 +70,13 @@ fn run(args: &Args) -> Result<(), Error> {
 
     simple_logger::init_with_level(level).unwrap();
 
-    let branch = args
-        .flag_branch
-        .as_ref()
-        .map(|s| &s[..])
-        .unwrap_or("master");
-
     if args.cmd_fame {
         let threads: usize = match &args.flag_threads {
             None => DEFAULT_THREADS,
             Some(b) => *b,
         };
 
-        fame::process_repo(path, branch, args.flag_sort.clone(), threads)?;
+        fame::process_repo(path, args.flag_sort.clone(), threads)?;
     } else if args.cmd_bydate {
         let start_date: Option<Date<Local>> = match &args.flag_start_date {
             Some(b) => {
