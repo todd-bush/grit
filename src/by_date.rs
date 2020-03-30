@@ -1,4 +1,5 @@
 #[macro_use]
+use chrono::DateTime;
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::offset::{Local, TimeZone};
 use chrono::{Date, Datelike, NaiveDate, NaiveDateTime};
@@ -155,8 +156,11 @@ fn process_date(
     Ok(output)
 }
 
-fn convert_git_time(time: &Time) -> NaiveDateTime {
-    NaiveDateTime::from_timestamp(time.seconds(), 0)
+fn convert_git_time(time: &Time) -> DateTime<Local> {
+    let local_now = Local::now();
+    local_now
+        .timezone()
+        .from_utc_datetime(&NaiveDateTime::from_timestamp(time.seconds(), 0))
 }
 
 fn display_output(
