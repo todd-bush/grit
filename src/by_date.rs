@@ -1,7 +1,7 @@
 #[macro_use]
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::offset::{Local, TimeZone};
-use chrono::{Date, Datelike, NaiveDateTime};
+use chrono::{Date, Datelike, NaiveDate, NaiveDateTime};
 use csv::Writer;
 use git2::{Error, Repository, Time};
 use plotters::prelude::*;
@@ -25,16 +25,16 @@ impl ByDate {
 }
 
 pub struct ByDateArgs {
-    start_date: Option<NaiveDateTime>,
-    end_date: Option<NaiveDateTime>,
+    start_date: Option<Date<Local>>,
+    end_date: Option<Date<Local>>,
     file: Option<String>,
     image: bool,
 }
 
 impl ByDateArgs {
     pub fn new(
-        start_date: Option<NaiveDateTime>,
-        end_date: Option<NaiveDateTime>,
+        start_date: Option<Date<Local>>,
+        end_date: Option<Date<Local>>,
         file: Option<String>,
         image: bool,
     ) -> Self {
@@ -70,17 +70,26 @@ pub fn by_date(repo_path: &str, args: ByDateArgs) -> Result<(), Error> {
 
 fn process_date(
     repo_path: &str,
-    start_date: Option<NaiveDateTime>,
-    end_date: Option<NaiveDateTime>,
+    start_date: Option<Date<Local>>,
+    end_date: Option<Date<Local>>,
 ) -> Result<Vec<ByDate>, Error> {
+    let local_now = Local::now();
     let end_date = match end_date {
         Some(d) => d,
-        None => MAX_DATE.and_hms(0, 0, 0),
+        None => local_now
+            .timezone()
+            .from_local_date(&MAX_DATE)
+            .single()
+            .unwrap(),
     };
 
     let start_date = match start_date {
         Some(d) => d,
-        None => MIN_DATE.and_hms(0, 0, 0),
+        None => local_now
+            .timezone()
+            .from_local_date(&MIN_DATE)
+            .single()
+            .unwrap(),
     };
 
     let mut output_map: HashMap<String, i32> = HashMap::new();
@@ -108,11 +117,11 @@ fn process_date(
         let commit = filter_try!(repo.find_commit(id));
         let commit_time = commit.time().seconds();
 
-        if commit_time < start_date.timestamp() {
+        if commit_time < start_date.naive_local().and_hms(0, 0, 0).timestamp() {
             return None;
         }
 
-        if commit_time > end_date.timestamp() {
+        if commit_time > end_date.naive_local().and_hms(0, 0, 0).timestamp() {
             return None;
         }
 
@@ -213,13 +222,6 @@ fn create_output_image(
         &BLUE,
     ))?;
 
-    // chart
-    //     .draw_series(LineSeries::new(
-    //         output.iter().map(|db| (db.date, db.count)),
-    //         Into::<ShapeStyle>::into(&RED).stroke_width(3),
-    //     ))
-    //     .expect("Drawing Error");
-
     Ok(())
 }
 
@@ -257,9 +259,17 @@ mod tests {
     fn test_by_date_end_date_only() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
-        let ed = NaiveDateTime::parse_from_str("2020-03-26 23:59:59", "%Y-%m-%d %H:%M:%S");
+        let dt_local = Local::now();
 
-        let args = ByDateArgs::new(None, Some(ed.unwrap()), None, false);
+        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
+
+        let ed = dt_local
+            .timezone()
+            .from_local_date(&utc_dt)
+            .single()
+            .unwrap();
+
+        let args = ByDateArgs::new(None, Some(ed), None, false);
 
         let start = Instant::now();
 
@@ -278,11 +288,19 @@ mod tests {
     fn test_by_date_end_date_only_image() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
-        let ed = NaiveDateTime::parse_from_str("2020-03-26 23:59:59", "%Y-%m-%d %H:%M:%S");
+        let dt_local = Local::now();
+
+        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
+
+        let ed = dt_local
+            .timezone()
+            .from_local_date(&utc_dt)
+            .single()
+            .unwrap();
 
         let start = Instant::now();
 
-        let output = process_date(".", None, Some(ed.unwrap()));
+        let output = process_date(".", None, Some(ed));
 
         create_output_image(output.unwrap(), "test_image.png".to_string());
 

@@ -9,7 +9,8 @@ mod by_date;
 mod fame;
 
 use crate::by_date::ByDateArgs;
-use chrono::{NaiveDate, NaiveDateTime};
+use crate::chrono::TimeZone;
+use chrono::{Date, Local, NaiveDate};
 use docopt::Docopt;
 use git2::Error;
 use log::Level;
@@ -85,21 +86,17 @@ fn run(args: &Args) -> Result<(), Error> {
 
         fame::process_repo(path, branch, args.flag_sort.clone(), threads)?;
     } else if args.cmd_bydate {
-        let start_date: Option<NaiveDateTime> = match &args.flag_start_date {
+        let start_date: Option<Date<Local>> = match &args.flag_start_date {
             Some(b) => {
-                let dt = NaiveDate::parse_from_str(b, "%Y-%m-%d")
-                    .unwrap()
-                    .and_hms(0, 0, 0);
+                let dt = parse_datelocal(b);
                 Some(dt)
             }
             None => None,
         };
 
-        let end_date: Option<NaiveDateTime> = match &args.flag_end_date {
+        let end_date: Option<Date<Local>> = match &args.flag_end_date {
             Some(d) => {
-                let dt = NaiveDate::parse_from_str(d, "%Y-%m-%d")
-                    .unwrap()
-                    .and_hms(23, 59, 59);
+                let dt = parse_datelocal(d);
                 Some(dt)
             }
             None => None,
@@ -122,6 +119,17 @@ fn run(args: &Args) -> Result<(), Error> {
     };
 
     Ok(())
+}
+
+fn parse_datelocal(date_string: &str) -> Date<Local> {
+    let local_now = Local::now();
+    let utc_dt = NaiveDate::parse_from_str(date_string, "%Y-%m-%d").unwrap();
+
+    local_now
+        .timezone()
+        .from_local_date(&utc_dt)
+        .single()
+        .unwrap()
 }
 
 fn main() {
