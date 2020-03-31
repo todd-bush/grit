@@ -200,6 +200,8 @@ fn create_output_image(
         parse_time(&output.last().unwrap().date),
     );
 
+    let output_count = output.len();
+
     let max_count_obj = output.iter().max_by(|x, y| x.count.cmp(&y.count));
 
     let max_count = max_count_obj.unwrap().count as f32 + 5.0;
@@ -208,15 +210,15 @@ fn create_output_image(
         .x_label_area_size(35)
         .y_label_area_size(40)
         .margin(5)
-        .caption("Commits by Date", ("sans-serif", 50.0).into_font())
+        .caption("Commits by Date", ("sans-serif", 32.0).into_font())
         .build_ranged(from_date..to_date, 0f32..max_count)?;
 
     chart
         .configure_mesh()
-        .disable_x_mesh()
-        .disable_y_axis()
+        .y_labels(output_count)
         .y_desc("Commits")
         .y_label_formatter(&|y| format!("{}", y))
+        .x_label_formatter(&|x| format!("{}", x.format("%Y-%m-%d")))
         .draw()?;
 
     chart.draw_series(LineSeries::new(
@@ -290,22 +292,12 @@ mod tests {
     }
 
     #[test]
-    fn test_by_date_end_date_only_image() {
+    fn test_by_date_image() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
-
-        let dt_local = Local::now();
-
-        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
-
-        let ed = dt_local
-            .timezone()
-            .from_local_date(&utc_dt)
-            .single()
-            .unwrap();
 
         let start = Instant::now();
 
-        let output = process_date(".", None, Some(ed));
+        let output = process_date(".", None, None);
 
         create_output_image(output.unwrap(), "test_image.png".to_string());
 
