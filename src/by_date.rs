@@ -215,6 +215,7 @@ fn create_output_image(
 
     chart
         .configure_mesh()
+        .x_labels(output_count)
         .y_labels(output_count)
         .y_desc("Commits")
         .y_label_formatter(&|y| format!("{}", y))
