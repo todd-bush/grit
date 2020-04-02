@@ -1,9 +1,11 @@
 use git2::{BlameOptions, Error, Repository, StatusOptions};
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
+use scoped_threadpool::Pool;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::{Arc, RwLock};
 
 pub struct FameArgs {
     path: String,
@@ -85,25 +87,39 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
         .map(|se| se.path().unwrap().to_string())
         .collect();
 
-    let mut per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
+    let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
+    let arc_per_file = Arc::new(RwLock::new(per_file));
+
     let pgb = ProgressBar::new(file_names.len() as u64);
+    let arc_pgb = Arc::new(RwLock::new(pgb));
 
-    for file_name in file_names {
-        let fne = &file_name;
+    let mut pool = Pool::new(args.threads as u32);
 
-        per_file.insert(fne.to_string(), process_file(repo_path, fne).unwrap());
-        pgb.inc(1);
-    }
+    pool.scoped(|scoped| {
+        for file_name in file_names {
+            let fne = Arc::new(file_name);
+            let inner_pbg = arc_pgb.clone();
+            let inner_per_file = arc_per_file.clone();
+            scoped.execute(move || {
+                let blame_map = process_file(repo_path, fne.as_ref()).unwrap();
+                inner_per_file
+                    .write()
+                    .unwrap()
+                    .insert(fne.to_string(), blame_map);
+                inner_pbg.write().unwrap().inc(1);
+            });
+        }
+    });
 
-    pgb.finish();
+    arc_pgb.write().unwrap().finish();
 
-    let max_files = per_file.keys().len();
+    let max_files = arc_per_file.read().unwrap().keys().len();
     let mut max_lines = 0;
 
     let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
     let mut total_commits: Vec<String> = Vec::new();
 
-    for (key, value) in per_file.iter() {
+    for (key, value) in arc_per_file.read().unwrap().iter() {
         for val in value.iter() {
             let om = match output_map.entry(val.author.clone()) {
                 Vacant(entry) => entry.insert(FameOutputLine::new()),
