@@ -1,4 +1,5 @@
 use git2::{BlameOptions, Error, Repository, StatusOptions};
+use prettytable::{cell, format, row, Table};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::path::Path;
@@ -36,6 +37,35 @@ impl BlameOutput {
     }
 }
 
+#[derive(Clone)]
+struct FameOutputLine {
+    author: String,
+    lines: usize,
+    file_count: usize,
+    filenames: Vec<String>,
+    commits: Vec<String>,
+    commits_count: usize,
+    perc_lines: f64,
+    perc_files: f64,
+    perc_commits: f64,
+}
+
+impl FameOutputLine {
+    fn new() -> FameOutputLine {
+        FameOutputLine {
+            author: String::new(),
+            lines: 0,
+            commits: Vec::new(),
+            file_count: 0,
+            filenames: Vec::new(),
+            commits_count: 0,
+            perc_files: 0.0,
+            perc_lines: 0.0,
+            perc_commits: 0.0,
+        }
+    }
+}
+
 pub fn process_fame(args: FameArgs) -> Result<(), Error> {
     let repo_path: &str = args.path.as_ref();
     let repo = Repository::open(repo_path)?;
@@ -61,6 +91,86 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
 
         per_file.insert(fne.to_string(), process_file(repo_path, fne).unwrap());
     }
+
+    let max_files = per_file.keys().len();
+    let mut max_commits = 0;
+    let mut max_lines = 0;
+
+    let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
+
+    for (key, value) in per_file.iter() {
+        for val in value.iter() {
+            let om = match output_map.entry(val.author.clone()) {
+                Vacant(entry) => entry.insert(FameOutputLine::new()),
+                Occupied(entry) => entry.into_mut(),
+            };
+            om.commits.push(val.commit_id.clone());
+            om.filenames.push(key.to_string());
+            om.lines += val.lines;
+            max_lines += val.lines;
+            max_commits += 1; // is this right?
+        }
+    }
+
+    info!(
+        "Max files/commits/lines: {} {} {}",
+        max_files, max_commits, max_lines
+    );
+
+    let mut output: Vec<FameOutputLine> = output_map
+        .iter_mut()
+        .map(|(key, val)| {
+            val.commits.dedup();
+            val.commits_count = val.commits.len();
+            val.filenames.dedup();
+            val.file_count = val.filenames.len();
+            val.author = key.to_string();
+            val.perc_files = (val.file_count) as f64 / (max_files) as f64;
+            val.perc_commits = (val.commits_count) as f64 / (max_commits) as f64;
+            val.perc_lines = (val.lines) as f64 / (max_lines) as f64;
+            val.clone()
+        })
+        .collect();
+
+    match args.sort {
+        Some(ref x) if x == "loc" => output.sort_by(|a, b| b.lines.cmp(&a.lines)),
+        Some(ref x) if x == "files" => output.sort_by(|a, b| b.file_count.cmp(&a.file_count)),
+        _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
+    };
+
+    pretty_print_table(output);
+
+    Ok(())
+}
+
+fn pretty_print_table(output: Vec<FameOutputLine>) -> Result<(), Error> {
+    let mut table = Table::new();
+
+    table.set_titles(row![
+        "Author",
+        "Files",
+        "Commits",
+        "LOC",
+        "Distribution (%)"
+    ]);
+
+    for o in output.iter() {
+        let pf = format!("{:.1}", o.perc_files * 100.0);
+        let pc = format!("{:.1}", o.perc_commits * 100.0);
+        let pl = format!("{:.1}", o.perc_lines * 100.0);
+        let s = format!(
+            "{pf:<width$} / {pc:<width$} / {pl:<width$}",
+            pf = pf,
+            pc = pc,
+            pl = pl,
+            width = 5
+        );
+
+        table.add_row(row![o.author, o.file_count, o.commits_count, o.lines, s]);
+    }
+
+    table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+    table.printstd();
 
     Ok(())
 }
