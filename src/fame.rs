@@ -1,27 +1,48 @@
-#[macro_use]
 use git2::{BlameOptions, Error, Repository, StatusOptions};
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
-use scoped_threadpool::Pool;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::path::Path;
-use std::str;
-use std::sync::{Arc, RwLock};
-use std::time::Instant;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct BlameOutputFile {
+pub struct FameArgs {
+    path: String,
+    sort: Option<String>,
+    threads: usize,
+}
+
+impl FameArgs {
+    pub fn new(path: String, sort: Option<String>, threads: usize) -> Self {
+        FameArgs {
+            path,
+            sort,
+            threads,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+struct BlameOutput {
     author: String,
     commit_id: String,
     lines: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+impl BlameOutput {
+    fn new(author: String, commit_id: String) -> Self {
+        BlameOutput {
+            author,
+            commit_id,
+            lines: 0,
+        }
+    }
+}
+
+#[derive(Clone)]
 struct FameOutputLine {
     author: String,
     lines: usize,
-    files_count: usize,
+    file_count: usize,
     filenames: Vec<String>,
     commits: Vec<String>,
     commits_count: usize,
@@ -36,7 +57,7 @@ impl FameOutputLine {
             author: String::new(),
             lines: 0,
             commits: Vec::new(),
-            files_count: 0,
+            file_count: 0,
             filenames: Vec::new(),
             commits_count: 0,
             perc_files: 0.0,
@@ -44,6 +65,92 @@ impl FameOutputLine {
             perc_commits: 0.0,
         }
     }
+}
+
+pub fn process_fame(args: FameArgs) -> Result<(), Error> {
+    let repo_path: &str = args.path.as_ref();
+    let repo = Repository::open(repo_path)?;
+
+    let mut status_opts = StatusOptions::new();
+    status_opts.include_untracked(false);
+    status_opts.include_unmodified(true);
+    status_opts.include_ignored(false);
+    status_opts.include_unreadable(false);
+    status_opts.exclude_submodules(true);
+
+    let statuses = repo.statuses(Some(&mut status_opts))?;
+
+    let file_names: Vec<String> = statuses
+        .iter()
+        .map(|se| se.path().unwrap().to_string())
+        .collect();
+
+    let mut per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
+    let pgb = ProgressBar::new(file_names.len() as u64);
+
+    for file_name in file_names {
+        let fne = &file_name;
+
+        per_file.insert(fne.to_string(), process_file(repo_path, fne).unwrap());
+        pgb.inc(1);
+    }
+
+    pgb.finish();
+
+    let max_files = per_file.keys().len();
+    let mut max_lines = 0;
+
+    let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
+    let mut total_commits: Vec<String> = Vec::new();
+
+    for (key, value) in per_file.iter() {
+        for val in value.iter() {
+            let om = match output_map.entry(val.author.clone()) {
+                Vacant(entry) => entry.insert(FameOutputLine::new()),
+                Occupied(entry) => entry.into_mut(),
+            };
+            om.commits.push(val.commit_id.clone());
+            total_commits.push(val.commit_id.clone());
+            om.filenames.push(key.to_string());
+            om.lines += val.lines;
+            max_lines += val.lines;
+        }
+    }
+
+    // TODO - check on total_files
+    total_commits.sort();
+    total_commits.dedup();
+    let max_commits = total_commits.len();
+
+    info!(
+        "Max files/commits/lines: {} {} {}",
+        max_files, max_commits, max_lines
+    );
+
+    let mut output: Vec<FameOutputLine> = output_map
+        .iter_mut()
+        .map(|(key, val)| {
+            val.commits.sort();
+            val.commits.dedup();
+            val.commits_count = val.commits.len();
+            val.filenames.sort();
+            val.filenames.dedup();
+            val.file_count = val.filenames.len();
+            val.author = key.to_string();
+            val.perc_files = (val.file_count) as f64 / (max_files) as f64;
+            val.perc_commits = (val.commits_count) as f64 / (max_commits) as f64;
+            val.perc_lines = (val.lines) as f64 / (max_lines) as f64;
+            val.clone()
+        })
+        .collect();
+
+    match args.sort {
+        Some(ref x) if x == "loc" => output.sort_by(|a, b| b.lines.cmp(&a.lines)),
+        Some(ref x) if x == "files" => output.sort_by(|a, b| b.file_count.cmp(&a.file_count)),
+        _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
+    };
+
+    pretty_print_table(output)
 }
 
 fn pretty_print_table(output: Vec<FameOutputLine>) -> Result<(), Error> {
@@ -57,7 +164,7 @@ fn pretty_print_table(output: Vec<FameOutputLine>) -> Result<(), Error> {
         "Distribution (%)"
     ]);
 
-    output.iter().for_each(|o| {
+    for o in output.iter() {
         let pf = format!("{:.1}", o.perc_files * 100.0);
         let pc = format!("{:.1}", o.perc_commits * 100.0);
         let pl = format!("{:.1}", o.perc_lines * 100.0);
@@ -68,8 +175,9 @@ fn pretty_print_table(output: Vec<FameOutputLine>) -> Result<(), Error> {
             pl = pl,
             width = 5
         );
-        table.add_row(row![o.author, o.files_count, o.commits_count, o.lines, s]);
-    });
+
+        table.add_row(row![o.author, o.file_count, o.commits_count, o.lines, s]);
+    }
 
     table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.printstd();
@@ -77,25 +185,18 @@ fn pretty_print_table(output: Vec<FameOutputLine>) -> Result<(), Error> {
     Ok(())
 }
 
-fn process_blame(repo_path: &str, path: Arc<&Path>) -> Result<Vec<BlameOutputFile>, Error> {
+fn process_file(repo_path: &str, file_name: &str) -> Result<Vec<BlameOutput>, Error> {
     let repo = Repository::open(repo_path)?;
     let mut bo = BlameOptions::new();
-    let blame = repo.blame_file(path.as_ref(), Some(&mut bo)).unwrap();
-    let file_name = path.file_name().unwrap().to_str().unwrap();
+    let path = Path::new(file_name);
+    let blame = repo.blame_file(path, Some(&mut bo))?;
 
-    let mut blame_map: HashMap<BlameOutputFile, usize> = HashMap::new();
+    let mut blame_map: HashMap<BlameOutput, usize> = HashMap::new();
 
-    info!("process_blame begin loop {}", file_name);
-    let start = Instant::now();
-
-    blame.iter().for_each(|hunk| {
+    for hunk in blame.iter() {
         let sig = hunk.final_signature();
         let signame = String::from_utf8_lossy(sig.name_bytes()).to_string();
-        let file_blame = BlameOutputFile {
-            author: signame,
-            commit_id: hunk.final_commit_id().to_string(),
-            lines: 0,
-        };
+        let file_blame = BlameOutput::new(signame, hunk.final_commit_id().to_string());
 
         let v = match blame_map.entry(file_blame) {
             Vacant(entry) => entry.insert(0),
@@ -103,182 +204,57 @@ fn process_blame(repo_path: &str, path: Arc<&Path>) -> Result<Vec<BlameOutputFil
         };
 
         *v += hunk.lines_in_hunk();
-    });
-
-    let result: Vec<BlameOutputFile> = blame_map
-        .iter()
-        .map(|(key, val)| {
-            let mut k = key.clone();
-            let v = *val;
-            k.lines = v;
-            k
-        })
-        .collect();
-
-    let duration = start.elapsed();
-    info!("process_blame end loop {} in {:?}", file_name, duration);
-
-    Ok(result)
-}
-
-pub fn process_repo(repo_path: &str, sort: Option<String>, threads: usize) -> Result<(), Error> {
-    let repo = Repository::open(repo_path)?;
-
-    let mut opts = StatusOptions::new();
-    opts.include_untracked(false);
-    opts.include_unmodified(true);
-    opts.include_ignored(false);
-    opts.include_unreadable(false);
-    opts.exclude_submodules(true);
-    let statuses = repo.statuses(Some(&mut opts))?;
-    let arc_statuses = Arc::new(statuses);
-    let arc_statuses_clone = arc_statuses.clone();
-
-    let per_file_hm: HashMap<String, Vec<BlameOutputFile>> = HashMap::new();
-    let arc_per_file_hm = Arc::new(RwLock::new(per_file_hm));
-
-    let pb = ProgressBar::new(arc_statuses.len() as u64);
-    let arc_pb = Arc::new(RwLock::new(pb));
-
-    let mut pool = Pool::new(threads as u32);
-
-    pool.scoped(|scoped| {
-        for se in arc_statuses_clone.iter() {
-            let file_name = se.path().unwrap();
-            let arc_file_name = Arc::new(file_name.to_owned());
-            let hm = arc_per_file_hm.clone();
-            let apb = arc_pb.clone();
-
-            scoped.execute(move || {
-                let path = Path::new(arc_file_name.as_ref());
-
-                let arc_path = Arc::new(path).clone();
-
-                let arc_path_c = arc_path.clone();
-                let arc_file_name_c = arc_file_name.clone();
-
-                let start = Instant::now();
-
-                info!("start processing {}", arc_file_name_c.to_string());
-                let stack = process_blame(repo_path, arc_path_c);
-
-                hm.write()
-                    .unwrap()
-                    .insert(arc_file_name_c.to_string(), stack.unwrap());
-                drop(hm);
-
-                apb.write().unwrap().inc(1);
-                drop(apb);
-
-                let duration = start.elapsed();
-                info!(
-                    "completed processing {} in {:?}",
-                    arc_file_name_c.to_string(),
-                    duration
-                );
-            });
-        }
-    });
-
-    arc_pb.write().unwrap().finish();
-    let max_files = arc_per_file_hm.read().unwrap().keys().len();
-    let mut max_commits = 0;
-    let mut max_lines = 0;
-
-    let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
-
-    for (k, value) in arc_per_file_hm.read().unwrap().iter() {
-        for (_, val) in value.iter().enumerate() {
-            let om = match output_map.entry(val.author.clone()) {
-                Vacant(entry) => entry.insert(FameOutputLine::new()),
-                Occupied(entry) => entry.into_mut(),
-            };
-            om.commits.push(val.commit_id.clone());
-            om.filenames.push(k.to_string());
-            om.lines += val.lines;
-            max_lines += val.lines;
-            max_commits += 1;
-        }
     }
 
-    info!(
-        "Max files/commits/lines: {} {} {}",
-        max_files, max_commits, max_lines
-    );
-
-    let mut output: Vec<FameOutputLine> = output_map
-        .iter_mut()
-        .map(|(key, val)| {
-            val.commits.dedup();
-            val.commits_count = val.commits.len();
-            val.filenames.dedup();
-            val.files_count = val.filenames.len();
-            val.author = key.to_string();
-            val.perc_files = (val.files_count) as f64 / (max_files) as f64;
-            val.perc_commits = (val.commits_count) as f64 / (max_commits) as f64;
-            val.perc_lines = (val.lines) as f64 / (max_lines) as f64;
-            val.clone()
+    let result: Vec<BlameOutput> = blame_map
+        .iter()
+        .map(|(k, v)| {
+            let mut key = k.clone();
+            key.lines = *v;
+            key
         })
         .collect();
 
-    match sort {
-        Some(ref x) if x == "loc" => output.sort_by(|a, b| b.lines.cmp(&a.lines)),
-        Some(ref x) if x == "files" => output.sort_by(|a, b| b.files_count.cmp(&a.files_count)),
-        _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
-    };
-
-    pretty_print_table(output)
+    Ok(result)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DEFAULT_THREADS;
     use log::Level;
+    use std::time::Instant;
 
     #[test]
-    fn test_process_repo_custom_threads() {
+    fn test_process_file() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
         let start = Instant::now();
 
-        let result = match process_repo(".", Some("loc".to_string()), 5) {
-            Ok(()) => true,
-            Err(_e) => {
-                error!("Error {}", _e);
-                false
-            }
-        };
+        let result = process_file(".", "README.md").unwrap();
 
         let duration = start.elapsed();
 
-        println!("completed test_process_repo_custom_threads {:?}", duration);
+        println!("completed test_process_file in {:?}", duration);
 
         assert!(
-            result,
-            "test_process_repo_custom_threads result was {}",
-            result
+            result.len() >= 9,
+            "test_process_file result was {}",
+            result.len()
         );
     }
 
     #[test]
-    fn test_process_repo_default_threads() {
+    fn test_process_fame() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
+
+        let args = FameArgs::new(".".to_string(), Some("loc".to_string()), 15);
+
         let start = Instant::now();
 
-        let result = match process_repo(".", Some("loc".to_string()), DEFAULT_THREADS) {
-            Ok(()) => true,
-            Err(_e) => false,
-        };
+        process_fame(args).unwrap();
 
         let duration = start.elapsed();
 
-        println!("completed test_process_repo_default_threads {:?}", duration);
-
-        assert!(
-            result,
-            "test_process_repo_default_threads result was {}",
-            result
-        );
+        println!("completed test_process_fame in {:?}", duration);
     }
 }

@@ -7,10 +7,10 @@ extern crate simple_logger;
 
 mod by_date;
 mod fame;
-mod fame_two;
 
 use crate::by_date::ByDateArgs;
 use crate::chrono::TimeZone;
+use crate::fame::FameArgs;
 use chrono::{Date, Local, NaiveDate};
 use docopt::Docopt;
 use git2::Error;
@@ -77,7 +77,9 @@ fn run(args: &Args) -> Result<(), Error> {
             Some(b) => *b,
         };
 
-        fame::process_repo(path, args.flag_sort.clone(), threads)?;
+        let fame_args = FameArgs::new(path.to_string(), args.flag_sort.clone(), threads);
+
+        fame::process_fame(fame_args)?;
     } else if args.cmd_bydate {
         let start_date: Option<Date<Local>> = match &args.flag_start_date {
             Some(b) => {
