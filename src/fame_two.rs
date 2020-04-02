@@ -93,10 +93,10 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
     }
 
     let max_files = per_file.keys().len();
-    let mut max_commits = 0;
     let mut max_lines = 0;
 
     let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
+    let mut total_commits: Vec<String> = Vec::new();
 
     for (key, value) in per_file.iter() {
         for val in value.iter() {
@@ -105,12 +105,15 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
                 Occupied(entry) => entry.into_mut(),
             };
             om.commits.push(val.commit_id.clone());
+            total_commits.push(val.commit_id.clone());
             om.filenames.push(key.to_string());
             om.lines += val.lines;
             max_lines += val.lines;
-            max_commits += 1; // is this right?
         }
     }
+    total_commits.sort();
+    total_commits.dedup();
+    let max_commits = total_commits.len();
 
     info!(
         "Max files/commits/lines: {} {} {}",
@@ -120,8 +123,10 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
     let mut output: Vec<FameOutputLine> = output_map
         .iter_mut()
         .map(|(key, val)| {
+            val.commits.sort();
             val.commits.dedup();
             val.commits_count = val.commits.len();
+            val.filenames.sort();
             val.filenames.dedup();
             val.file_count = val.filenames.len();
             val.author = key.to_string();
@@ -138,9 +143,7 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
         _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
     };
 
-    pretty_print_table(output);
-
-    Ok(())
+    pretty_print_table(output)
 }
 
 fn pretty_print_table(output: Vec<FameOutputLine>) -> Result<(), Error> {
@@ -241,7 +244,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let result = process_fame(args).unwrap();
+        process_fame(args).unwrap();
 
         let duration = start.elapsed();
 
