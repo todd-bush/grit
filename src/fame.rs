@@ -267,9 +267,14 @@ mod tests {
 
         let start = Instant::now();
 
-        process_fame(args).unwrap();
+        let result = match process_fame(args) {
+            Ok(()) => true,
+            Err(_t) => false,
+        };
 
         let duration = start.elapsed();
+
+        assert!(result, "test_process_file result was {}", result);
 
         println!("completed test_process_fame in {:?}", duration);
     }
