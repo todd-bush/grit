@@ -1,6 +1,8 @@
 # grit
 Grit is a git repository analyzer written in [Rust](https://github.om/rust-lang).
 
+[Fame](https://github.com/oleander/git-fame-rb) is based on the "git fame" functionality.
+
 # Usage
 ```
 Usage:
@@ -27,7 +29,7 @@ Options:
 
 ```grit bydate``` will create a csv of date and commit count to stdout or file.  Option to produce image.
 
-```grit fame``` will create a table of metrics per author.
+```grit fame``` will create a table of metrics per author.  This may take a while with very large repos.
 
 ## Example
 
