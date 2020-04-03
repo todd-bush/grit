@@ -223,17 +223,22 @@ fn process_file(
 
     let mut blame_map: HashMap<BlameOutput, usize> = HashMap::new();
 
-    for hunk in blame.iter() {
-        let sig = hunk.final_signature();
-        let signame = String::from_utf8_lossy(sig.name_bytes()).to_string();
-        let file_blame = BlameOutput::new(signame, hunk.final_commit_id().to_string());
+    let start_date_sec = match start_date {
+        Some(d) => Some(d.naive_local().and_hms(0, 0, 0).timestamp()),
+        None => None,
+    };
 
-        if let Some(d) = start_date {
+    for hunk in blame.iter() {
+        if let Some(d) = start_date_sec {
             let commit = repo.find_commit(hunk.final_commit_id())?;
-            if d.naive_local().and_hms(0, 0, 0).timestamp() > commit.time().seconds() {
+            if d > commit.time().seconds() {
                 continue;
             }
         }
+
+        let sig = hunk.final_signature();
+        let signame = String::from_utf8_lossy(sig.name_bytes()).to_string();
+        let file_blame = BlameOutput::new(signame, hunk.final_commit_id().to_string());
 
         let v = match blame_map.entry(file_blame) {
             Vacant(entry) => entry.insert(0),
