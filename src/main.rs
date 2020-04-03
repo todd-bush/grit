@@ -38,7 +38,7 @@ const USAGE: &str = "
 Grit.
 
 Usage:
-    grit fame [--sort=<field>] [--start_date=<string>] [--debug]
+    grit fame [--sort=<field>] [--start_date=<string>] [--end_date=<string>] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--debug]
 
 Command:
@@ -50,8 +50,8 @@ Options:
     -h, --help                  displays help
     --sort=<field>              sort field, either 'commit' (default), 'loc', 'files'
     --threads=<number>          number of concurrent processing threads, default is 10
-    --start-date=<string>       start date for bydate in YYYY-MM-DD format.
-    --end-date=<string>         end date for bydate in YYYY-MM-DD format.
+    --start-date=<string>       start date in YYYY-MM-DD format.
+    --end-date=<string>         end date in YYYY-MM-DD format.
     --file=<string>             output file for the by date file.  Sends to stdout by default
     --image                     creates an image for the by_date graph.  file is required
     --verbose
@@ -79,6 +79,14 @@ fn run(args: &Args) -> Result<(), Error> {
         None => None,
     };
 
+    let end_date: Option<Date<Local>> = match &args.flag_end_date {
+        Some(d) => {
+            let dt = parse_datelocal(d);
+            Some(dt)
+        }
+        None => None,
+    };
+
     if args.cmd_fame {
         let threads: usize = match &args.flag_threads {
             None => DEFAULT_THREADS,
@@ -90,18 +98,11 @@ fn run(args: &Args) -> Result<(), Error> {
             args.flag_sort.clone(),
             threads,
             start_date,
+            end_date,
         );
 
         fame::process_fame(fame_args)?;
     } else if args.cmd_bydate {
-        let end_date: Option<Date<Local>> = match &args.flag_end_date {
-            Some(d) => {
-                let dt = parse_datelocal(d);
-                Some(dt)
-            }
-            None => None,
-        };
-
         if args.flag_image {
             match args.flag_file {
                 None => panic!("File is requird when selecting image"),
