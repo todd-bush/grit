@@ -1,3 +1,4 @@
+use chrono::{Date, Local, TimeZone};
 use git2::{BlameOptions, Error, Repository, StatusOptions};
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
@@ -11,14 +12,21 @@ pub struct FameArgs {
     path: String,
     sort: Option<String>,
     threads: usize,
+    start_date: Option<Date<Local>>,
 }
 
 impl FameArgs {
-    pub fn new(path: String, sort: Option<String>, threads: usize) -> Self {
+    pub fn new(
+        path: String,
+        sort: Option<String>,
+        threads: usize,
+        start_date: Option<Date<Local>>,
+    ) -> Self {
         FameArgs {
             path,
             sort,
             threads,
+            start_date,
         }
     }
 }
@@ -90,6 +98,8 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
     let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
     let arc_per_file = Arc::new(RwLock::new(per_file));
 
+    let start_date = args.start_date.clone();
+
     let pgb = ProgressBar::new(file_names.len() as u64);
     let arc_pgb = Arc::new(RwLock::new(pgb));
 
@@ -101,7 +111,7 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
             let inner_pbg = arc_pgb.clone();
             let inner_per_file = arc_per_file.clone();
             scoped.execute(move || {
-                let blame_map = process_file(repo_path, fne.as_ref()).unwrap();
+                let blame_map = process_file(repo_path, fne.as_ref(), start_date).unwrap();
                 inner_per_file
                     .write()
                     .unwrap()
@@ -201,7 +211,11 @@ fn pretty_print_table(output: Vec<FameOutputLine>) -> Result<(), Error> {
     Ok(())
 }
 
-fn process_file(repo_path: &str, file_name: &str) -> Result<Vec<BlameOutput>, Error> {
+fn process_file(
+    repo_path: &str,
+    file_name: &str,
+    start_date: Option<Date<Local>>,
+) -> Result<Vec<BlameOutput>, Error> {
     let repo = Repository::open(repo_path)?;
     let mut bo = BlameOptions::new();
     let path = Path::new(file_name);
@@ -213,6 +227,13 @@ fn process_file(repo_path: &str, file_name: &str) -> Result<Vec<BlameOutput>, Er
         let sig = hunk.final_signature();
         let signame = String::from_utf8_lossy(sig.name_bytes()).to_string();
         let file_blame = BlameOutput::new(signame, hunk.final_commit_id().to_string());
+
+        if let Some(d) = start_date {
+            let commit = repo.find_commit(hunk.final_commit_id())?;
+            if d.naive_local().and_hms(0, 0, 0).timestamp() > commit.time().seconds() {
+                continue;
+            }
+        }
 
         let v = match blame_map.entry(file_blame) {
             Vacant(entry) => entry.insert(0),
@@ -237,6 +258,7 @@ fn process_file(repo_path: &str, file_name: &str) -> Result<Vec<BlameOutput>, Er
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::NaiveDate;
     use log::Level;
     use std::time::Instant;
 
@@ -246,7 +268,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let result = process_file(".", "README.md").unwrap();
+        let result = process_file(".", "README.md", None).unwrap();
 
         let duration = start.elapsed();
 
@@ -263,7 +285,7 @@ mod tests {
     fn test_process_fame() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
-        let args = FameArgs::new(".".to_string(), Some("loc".to_string()), 15);
+        let args = FameArgs::new(".".to_string(), Some("loc".to_string()), 15, None);
 
         let start = Instant::now();
 
@@ -277,5 +299,35 @@ mod tests {
         assert!(result, "test_process_file result was {}", result);
 
         println!("completed test_process_fame in {:?}", duration);
+    }
+
+    #[test]
+    fn test_process_fame_start_date() {
+        simple_logger::init_with_level(Level::Info).unwrap_or(());
+
+        let dt_local = Local::now();
+
+        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
+
+        let ed = dt_local
+            .timezone()
+            .from_local_date(&utc_dt)
+            .single()
+            .unwrap();
+
+        let args = FameArgs::new(".".to_string(), Some("loc".to_string()), 15, Some(ed));
+
+        let start = Instant::now();
+
+        let result = match process_fame(args) {
+            Ok(()) => true,
+            Err(_t) => false,
+        };
+
+        let duration = start.elapsed();
+
+        assert!(result, "test_process_fame_start_date result was {}", result);
+
+        println!("completed test_process_fame_start_date in {:?}", duration);
     }
 }

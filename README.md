@@ -6,7 +6,7 @@ Grit is a git repository analyzer written in [Rust](https://github.om/rust-lang)
 # Usage
 ```
 Usage:
-    grit fame [--sort=<field>] [--debug]
+    grit fame [--sort=<field>] [--start_date=<string>] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--debug]
 
 Command:

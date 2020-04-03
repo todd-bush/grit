@@ -38,7 +38,7 @@ const USAGE: &str = "
 Grit.
 
 Usage:
-    grit fame [--sort=<field>] [--debug]
+    grit fame [--sort=<field>] [--start_date=<string>] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--debug]
 
 Command:
@@ -71,24 +71,29 @@ fn run(args: &Args) -> Result<(), Error> {
 
     simple_logger::init_with_level(level).unwrap();
 
+    let start_date: Option<Date<Local>> = match &args.flag_start_date {
+        Some(b) => {
+            let dt = parse_datelocal(b);
+            Some(dt)
+        }
+        None => None,
+    };
+
     if args.cmd_fame {
         let threads: usize = match &args.flag_threads {
             None => DEFAULT_THREADS,
             Some(b) => *b,
         };
 
-        let fame_args = FameArgs::new(path.to_string(), args.flag_sort.clone(), threads);
+        let fame_args = FameArgs::new(
+            path.to_string(),
+            args.flag_sort.clone(),
+            threads,
+            start_date,
+        );
 
         fame::process_fame(fame_args)?;
     } else if args.cmd_bydate {
-        let start_date: Option<Date<Local>> = match &args.flag_start_date {
-            Some(b) => {
-                let dt = parse_datelocal(b);
-                Some(dt)
-            }
-            None => None,
-        };
-
         let end_date: Option<Date<Local>> = match &args.flag_end_date {
             Some(d) => {
                 let dt = parse_datelocal(d);
