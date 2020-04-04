@@ -13,7 +13,6 @@ use crate::chrono::TimeZone;
 use crate::fame::FameArgs;
 use chrono::{Date, Local, NaiveDate};
 use docopt::Docopt;
-use git2::Error;
 use log::Level;
 use serde_derive::Deserialize;
 use std::str;
@@ -38,7 +37,7 @@ const USAGE: &str = "
 Grit.
 
 Usage:
-    grit fame [--sort=<field>] [--start_date=<string>] [--end_date=<string>] [--debug]
+    grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--debug]
 
 Command:
@@ -57,7 +56,9 @@ Options:
     --verbose
 ";
 
-fn run(args: &Args) -> Result<(), Error> {
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+fn run(args: &Args) -> Result<()> {
     let path = ".";
 
     // set logging level
@@ -74,7 +75,8 @@ fn run(args: &Args) -> Result<(), Error> {
     let start_date: Option<Date<Local>> = match &args.flag_start_date {
         Some(b) => {
             let dt = parse_datelocal(b);
-            Some(dt)
+
+            Some(dt?)
         }
         None => None,
     };
@@ -82,7 +84,8 @@ fn run(args: &Args) -> Result<(), Error> {
     let end_date: Option<Date<Local>> = match &args.flag_end_date {
         Some(d) => {
             let dt = parse_datelocal(d);
-            Some(dt)
+
+            Some(dt?)
         }
         None => None,
     };
@@ -101,7 +104,7 @@ fn run(args: &Args) -> Result<(), Error> {
             end_date,
         );
 
-        fame::process_fame(fame_args)?;
+        fame::process_fame(fame_args);
     } else if args.cmd_bydate {
         if args.flag_image {
             match args.flag_file {
@@ -116,21 +119,22 @@ fn run(args: &Args) -> Result<(), Error> {
             args.flag_file.clone(),
             args.flag_image,
         );
-        by_date::by_date(path, by_date_args)?;
+        by_date::by_date(path, by_date_args);
     };
 
     Ok(())
 }
 
-fn parse_datelocal(date_string: &str) -> Date<Local> {
+fn parse_datelocal(date_string: &str) -> Result<Date<Local>> {
     let local_now = Local::now();
-    let utc_dt = NaiveDate::parse_from_str(date_string, "%Y-%m-%d").unwrap();
+    let utc_dt = NaiveDate::parse_from_str(date_string, "%Y-%m-%d");
 
-    local_now
-        .timezone()
-        .from_local_date(&utc_dt)
-        .single()
-        .unwrap()
+    match utc_dt {
+        Ok(d) => Ok(local_now.timezone().from_local_date(&d).single().unwrap()),
+        Err(_e) => {
+            panic!("Dates must be in the 'YYYY-MM-DD' format ");
+        }
+    }
 }
 
 fn main() {
@@ -141,5 +145,31 @@ fn main() {
     match run(&args) {
         Ok(()) => {}
         Err(e) => println!("error: {}", e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_datelocal_good() {
+        let r = parse_datelocal("2020-04-01");
+
+        match r {
+            Ok(d) => println!("date parsed to {}", d),
+            Err(e) => assert!(false, "error thrown {:?}", e),
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_parse_datelocal_bad() {
+        let r = parse_datelocal("2020-04-01t");
+
+        match r {
+            Ok(d) => assert!(false, "date should of failed.  Result:{}", d),
+            Err(e) => println!("error expected: {:?}", e),
+        }
     }
 }
