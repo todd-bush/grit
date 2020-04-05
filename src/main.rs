@@ -26,6 +26,7 @@ struct Args {
     flag_start_date: Option<String>,
     flag_end_date: Option<String>,
     flag_file: Option<String>,
+    flag_include: Option<String>,
     flag_image: bool,
     cmd_fame: bool,
     cmd_bydate: bool,
@@ -37,7 +38,7 @@ const USAGE: &str = "
 Grit.
 
 Usage:
-    grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--debug]
+    grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--debug]
 
 Command:
@@ -51,6 +52,7 @@ Options:
     --threads=<number>          number of concurrent processing threads, default is 10
     --start-date=<string>       start date in YYYY-MM-DD format.
     --end-date=<string>         end date in YYYY-MM-DD format.
+    --include=<string>          comma delimited, glob file path to include path1/*,path2/*
     --file=<string>             output file for the by date file.  Sends to stdout by default
     --image                     creates an image for the by_date graph.  file is required
     --verbose
@@ -102,6 +104,7 @@ fn run(args: &Args) -> Result<()> {
             threads,
             start_date,
             end_date,
+            args.flag_include.clone(),
         );
 
         fame::process_fame(fame_args);

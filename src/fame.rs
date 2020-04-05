@@ -1,5 +1,6 @@
 use chrono::{Date, Local, TimeZone};
 use git2::{BlameOptions, Error, Repository, StatusOptions};
+use glob::Pattern;
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
 use scoped_threadpool::Pool;
@@ -14,6 +15,7 @@ pub struct FameArgs {
     threads: usize,
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
+    include: Option<String>,
 }
 
 impl FameArgs {
@@ -23,6 +25,7 @@ impl FameArgs {
         threads: usize,
         start_date: Option<Date<Local>>,
         end_date: Option<Date<Local>>,
+        include: Option<String>,
     ) -> Self {
         FameArgs {
             path,
@@ -30,6 +33,7 @@ impl FameArgs {
             threads,
             start_date,
             end_date,
+            include,
         }
     }
 }
@@ -82,21 +86,8 @@ impl FameOutputLine {
 
 pub fn process_fame(args: FameArgs) -> Result<(), Error> {
     let repo_path: &str = args.path.as_ref();
-    let repo = Repository::open(repo_path)?;
 
-    let mut status_opts = StatusOptions::new();
-    status_opts.include_untracked(false);
-    status_opts.include_unmodified(true);
-    status_opts.include_ignored(false);
-    status_opts.include_unreadable(false);
-    status_opts.exclude_submodules(true);
-
-    let statuses = repo.statuses(Some(&mut status_opts))?;
-
-    let file_names: Vec<String> = statuses
-        .iter()
-        .map(|se| se.path().unwrap().to_string())
-        .collect();
+    let file_names = generate_file_list(repo_path, args.include)?;
 
     let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
     let arc_per_file = Arc::new(RwLock::new(per_file));
@@ -182,6 +173,46 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
     };
 
     pretty_print_table(output, max_lines, max_files, max_commits)
+}
+
+fn generate_file_list(path: &str, includes: Option<String>) -> Result<Vec<String>, Error> {
+    let repo = Repository::open(path)?;
+
+    let mut status_opts = StatusOptions::new();
+    status_opts.include_untracked(false);
+    status_opts.include_unmodified(true);
+    status_opts.include_ignored(false);
+    status_opts.include_unreadable(false);
+    status_opts.exclude_submodules(true);
+
+    let statuses = repo.statuses(Some(&mut status_opts))?;
+
+    let includes: Vec<Pattern> = match includes {
+        Some(e) => e.split(',').map(|s| Pattern::new(s).unwrap()).collect(),
+        None => Vec::new(),
+    };
+
+    let file_names: Vec<String> = statuses
+        .iter()
+        .filter_map(|se| {
+            let s = se.path().unwrap().to_string();
+            let mut result = None;
+            if includes.is_empty() {
+                Some(s)
+            } else {
+                for p in &includes {
+                    if p.matches(&s) {
+                        result = Some(se.path().unwrap().to_string());
+                        continue;
+                    };
+                }
+
+                result
+            }
+        })
+        .collect();
+
+    Ok(file_names)
 }
 
 fn pretty_print_table(
@@ -318,7 +349,14 @@ mod tests {
     fn test_process_fame() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
-        let args = FameArgs::new(".".to_string(), Some("loc".to_string()), 15, None, None);
+        let args = FameArgs::new(
+            ".".to_string(),
+            Some("loc".to_string()),
+            15,
+            None,
+            None,
+            None,
+        );
 
         let start = Instant::now();
 
@@ -348,7 +386,14 @@ mod tests {
             .single()
             .unwrap();
 
-        let args = FameArgs::new(".".to_string(), Some("loc".to_string()), 15, Some(ed), None);
+        let args = FameArgs::new(
+            ".".to_string(),
+            Some("loc".to_string()),
+            15,
+            Some(ed),
+            None,
+            None,
+        );
 
         let start = Instant::now();
 
@@ -378,7 +423,14 @@ mod tests {
             .single()
             .unwrap();
 
-        let args = FameArgs::new(".".to_string(), Some("loc".to_string()), 15, None, Some(ed));
+        let args = FameArgs::new(
+            ".".to_string(),
+            Some("loc".to_string()),
+            15,
+            None,
+            Some(ed),
+            None,
+        );
 
         let start = Instant::now();
 
@@ -392,5 +444,54 @@ mod tests {
         assert!(result, "test_process_fame_end_date result was {}", result);
 
         println!("completed test_process_fame_end_date in {:?}", duration);
+    }
+
+    #[test]
+    fn test_process_fame_include() {
+        simple_logger::init_with_level(Level::Info).unwrap_or(());
+
+        let args = FameArgs::new(
+            ".".to_string(),
+            Some("loc".to_string()),
+            15,
+            None,
+            None,
+            Some("*.rs,*.md".to_string()),
+        );
+
+        let start = Instant::now();
+
+        let result = match process_fame(args) {
+            Ok(()) => true,
+            Err(_t) => false,
+        };
+
+        let duration = start.elapsed();
+
+        assert!(result, "test_process_fame_include result was {}", result);
+
+        println!("completed test_process_fame_include in {:?}", duration);
+    }
+
+    #[test]
+    fn test_generate_file_list_all() {
+        let result = generate_file_list(".", None).unwrap();
+
+        assert!(
+            result.len() >= 6,
+            "test_generate_file_list_all was {}",
+            result.len()
+        );
+    }
+
+    #[test]
+    fn test_generate_file_list_rust() {
+        let result = generate_file_list(".", Some("*.rs".to_string())).unwrap();
+
+        assert!(
+            result.len() == 3,
+            "test_generate_file_list_all was {}",
+            result.len()
+        );
     }
 }

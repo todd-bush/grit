@@ -6,7 +6,7 @@ Grit is a git repository analyzer written in [Rust](https://github.om/rust-lang)
 # Usage
 ```
 Usage:
-    grit fame [--sort=<field>] [--start_date=<string>] [--end_date=<string>] [--debug]
+    grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--debug]
 
 Command:
@@ -20,6 +20,7 @@ Options:
     --threads=<number>          number of concurrent processing threads, default is 10
     --start-date=<string>       start date in YYYY-MM-DD format.
     --end-date=<string>         end date in YYYY-MM-DD format.
+    --include=<string>          comma delimited, glob file path to include path1/*,path2/*
     --file=<string>             output file for the by date file.  Sends to stdout by default
     --image                     creates an image for the by_date graph.  file is required
     --verbose
