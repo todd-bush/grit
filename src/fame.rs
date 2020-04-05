@@ -181,10 +181,20 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
         _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
     };
 
-    pretty_print_table(output)
+    pretty_print_table(output, max_lines, max_files, max_commits)
 }
 
-fn pretty_print_table(output: Vec<FameOutputLine>) -> Result<(), Error> {
+fn pretty_print_table(
+    output: Vec<FameOutputLine>,
+    tot_loc: usize,
+    tot_files: usize,
+    tot_commits: usize,
+) -> Result<(), Error> {
+    println!("Stats on Repo");
+    println!("Total files: {}", tot_files);
+    println!("Total commits: {}", tot_commits);
+    println!("Total LOC: {}", tot_loc);
+
     let mut table = Table::new();
 
     table.set_titles(row![
