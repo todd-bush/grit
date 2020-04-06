@@ -33,7 +33,7 @@ Options:
 
 ```grit fame``` will create a table of metrics per author.  This may take a while with very large repos.
 
-## Example
+## Fame Example
 
 ```
 Stats on Repo
