@@ -255,10 +255,12 @@ mod tests {
 
         let args = ByDateArgs::new(None, None, None, false);
 
-        let _result = match by_date(".", args) {
+        let result = match by_date(".", args) {
             Ok(()) => true,
             Err(_e) => false,
         };
+
+        assert!(result, "test_by_date_no_ends resut {}", result);
 
         println!("completed test_by_date_no_ends in {:?}", start.elapsed());
     }
@@ -281,10 +283,12 @@ mod tests {
 
         let start = Instant::now();
 
-        let _result = match by_date(".", args) {
+        let result = match by_date(".", args) {
             Ok(()) => true,
             Err(_e) => false,
         };
+
+        assert!(result, "test_by_date_end_date_only resut {}", result);
 
         println!(
             "completed test_by_date_end_date_only in {:?}",
@@ -300,7 +304,12 @@ mod tests {
 
         let output = process_date(".", None, None);
 
-        create_output_image(output.unwrap(), "test_image.png".to_string());
+        let result = match create_output_image(output.unwrap(), "test_image.png".to_string()) {
+            Ok(()) => true,
+            Err(_e) => false,
+        };
+
+        assert!(result, "test_by_date_image resut {}", result);
 
         println!(
             "completed test_by_date_end_date_only_image in {:?}",
