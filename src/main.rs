@@ -27,6 +27,7 @@ struct Args {
     flag_end_date: Option<String>,
     flag_file: Option<String>,
     flag_include: Option<String>,
+    flag_exclude: Option<String>,
     flag_image: bool,
     cmd_fame: bool,
     cmd_bydate: bool,
@@ -38,8 +39,8 @@ const USAGE: &str = "
 Grit.
 
 Usage:
-    grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--debug]
-    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--debug]
+    grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
+    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--verbose] [--debug]
 
 Command:
     fame: produces counts by commit author
@@ -53,9 +54,10 @@ Options:
     --start-date=<string>       start date in YYYY-MM-DD format.
     --end-date=<string>         end date in YYYY-MM-DD format.
     --include=<string>          comma delimited, glob file path to include path1/*,path2/*
+    --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
     --file=<string>             output file for the by date file.  Sends to stdout by default
     --image                     creates an image for the by_date graph.  file is required
-    --verbose
+    -v, --verbose
 ";
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -105,6 +107,7 @@ fn run(args: &Args) -> Result<()> {
             start_date,
             end_date,
             args.flag_include.clone(),
+            args.flag_exclude.clone(),
         );
 
         fame::process_fame(fame_args);

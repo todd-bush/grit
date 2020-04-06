@@ -16,6 +16,7 @@ pub struct FameArgs {
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
     include: Option<String>,
+    exclude: Option<String>,
 }
 
 impl FameArgs {
@@ -26,6 +27,7 @@ impl FameArgs {
         start_date: Option<Date<Local>>,
         end_date: Option<Date<Local>>,
         include: Option<String>,
+        exclude: Option<String>,
     ) -> Self {
         FameArgs {
             path,
@@ -34,6 +36,7 @@ impl FameArgs {
             start_date,
             end_date,
             include,
+            exclude,
         }
     }
 }
@@ -87,7 +90,7 @@ impl FameOutputLine {
 pub fn process_fame(args: FameArgs) -> Result<(), Error> {
     let repo_path: &str = args.path.as_ref();
 
-    let file_names = generate_file_list(repo_path, args.include)?;
+    let file_names = generate_file_list(repo_path, args.include, args.exclude)?;
 
     let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
     let arc_per_file = Arc::new(RwLock::new(per_file));
@@ -175,7 +178,11 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
     pretty_print_table(output, max_lines, max_files, max_commits)
 }
 
-fn generate_file_list(path: &str, includes: Option<String>) -> Result<Vec<String>, Error> {
+fn generate_file_list(
+    path: &str,
+    include: Option<String>,
+    exclude: Option<String>,
+) -> Result<Vec<String>, Error> {
     let repo = Repository::open(path)?;
 
     let mut status_opts = StatusOptions::new();
@@ -187,7 +194,12 @@ fn generate_file_list(path: &str, includes: Option<String>) -> Result<Vec<String
 
     let statuses = repo.statuses(Some(&mut status_opts))?;
 
-    let includes: Vec<Pattern> = match includes {
+    let includes: Vec<Pattern> = match include {
+        Some(e) => e.split(',').map(|s| Pattern::new(s).unwrap()).collect(),
+        None => Vec::new(),
+    };
+
+    let excludes: Vec<Pattern> = match exclude {
         Some(e) => e.split(',').map(|s| Pattern::new(s).unwrap()).collect(),
         None => Vec::new(),
     };
@@ -196,19 +208,32 @@ fn generate_file_list(path: &str, includes: Option<String>) -> Result<Vec<String
         .iter()
         .filter_map(|se| {
             let s = se.path().unwrap().to_string();
+            let exclude_s = s.clone();
             let mut result = None;
+
             if includes.is_empty() {
-                Some(s)
+                info!("including {} to the file list", s);
+                result = Some(s);
             } else {
                 for p in &includes {
                     if p.matches(&s) {
                         result = Some(se.path().unwrap().to_string());
-                        continue;
+                        break;
                     };
                 }
-
-                result
             }
+
+            if !excludes.is_empty() && result.is_some() {
+                for p in &excludes {
+                    if p.matches(&exclude_s) {
+                        result = None;
+                        info!("removing {} from the file list", exclude_s);
+                        break;
+                    }
+                }
+            }
+
+            result
         })
         .collect();
 
@@ -356,6 +381,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let start = Instant::now();
@@ -391,6 +417,7 @@ mod tests {
             Some("loc".to_string()),
             15,
             Some(ed),
+            None,
             None,
             None,
         );
@@ -430,6 +457,7 @@ mod tests {
             None,
             Some(ed),
             None,
+            None,
         );
 
         let start = Instant::now();
@@ -457,6 +485,7 @@ mod tests {
             None,
             None,
             Some("*.rs,*.md".to_string()),
+            None,
         );
 
         let start = Instant::now();
@@ -475,7 +504,7 @@ mod tests {
 
     #[test]
     fn test_generate_file_list_all() {
-        let result = generate_file_list(".", None).unwrap();
+        let result = generate_file_list(".", None, None).unwrap();
 
         assert!(
             result.len() >= 6,
@@ -486,11 +515,22 @@ mod tests {
 
     #[test]
     fn test_generate_file_list_rust() {
-        let result = generate_file_list(".", Some("*.rs".to_string())).unwrap();
+        let result = generate_file_list(".", Some("*.rs".to_string()), None).unwrap();
 
         assert!(
             result.len() == 3,
             "test_generate_file_list_all was {}",
+            result.len()
+        );
+    }
+
+    #[test]
+    fn test_generate_file_list_exclude_rust() {
+        let result = generate_file_list(".", None, Some("*.rs".to_string())).unwrap();
+
+        assert!(
+            result.len() == 3,
+            "test_generate_file_list_exclude_rust was {}",
             result.len()
         );
     }
