@@ -307,7 +307,7 @@ fn process_file(
 
     for hunk in blame.iter() {
         if let Some(d) = start_date_sec {
-            let commit = repo.find_commit(hunk.orig_commit_id())?;
+            let commit = repo.find_commit(hunk.final_commit_id())?;
             if d > commit.time().seconds() {
                 continue;
             }
