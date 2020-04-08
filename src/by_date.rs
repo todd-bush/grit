@@ -222,6 +222,23 @@ fn create_output_image(
         .x_label_formatter(&|x| format!("{}", x.format("%Y-%m-%d")))
         .draw()?;
 
+    chart.draw_series(PointSeries::of_element(
+        output
+            .iter()
+            .map(|db| (parse_time(&db.date), db.count as f32)),
+        5,
+        ShapeStyle::from(&RED).filled(),
+        &|cord, size, style| {
+            EmptyElement::at(cord)
+                + Circle::new((0, 0), size, style)
+                + Text::new(
+                    format!("{}", cord.1),
+                    (0, -15),
+                    ("sans-serif", 12).into_font(),
+                )
+        },
+    ))?;
+
     chart.draw_series(LineSeries::new(
         output
             .iter()
