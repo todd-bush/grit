@@ -110,7 +110,7 @@ fn run(args: &Args) -> Result<()> {
             args.flag_exclude.clone(),
         );
 
-        fame::process_fame(fame_args);
+        fame::process_fame(fame_args)?;
     } else if args.cmd_bydate {
         if args.flag_image {
             match args.flag_file {
@@ -125,7 +125,7 @@ fn run(args: &Args) -> Result<()> {
             args.flag_file.clone(),
             args.flag_image,
         );
-        by_date::by_date(path, by_date_args);
+        by_date::by_date(path, by_date_args)?;
     };
 
     Ok(())

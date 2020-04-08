@@ -1,4 +1,4 @@
-use chrono::{Date, Local, TimeZone};
+use chrono::{Date, Local};
 use git2::{BlameOptions, Error, Repository, StatusOptions};
 use glob::Pattern;
 use indicatif::ProgressBar;
@@ -348,6 +348,7 @@ fn process_file(
 mod tests {
     use super::*;
     use chrono::NaiveDate;
+    use chrono::TimeZone;
     use log::Level;
     use std::time::Instant;
 
