@@ -308,6 +308,26 @@ mod tests {
     }
 
     #[test]
+    fn test_by_date_no_weekends() {
+        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+        let start = Instant::now();
+
+        let args = ByDateArgs::new(None, None, None, false, true);
+
+        let result = match by_date(".", args) {
+            Ok(()) => true,
+            Err(_e) => false,
+        };
+
+        println!(
+            "completed test_by_date_no_weekends in {:?}",
+            start.elapsed()
+        );
+
+        assert!(result, "test_by_date_no_weekends resut {}", result);
+    }
+
+    #[test]
     fn test_by_date_end_date_only() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
