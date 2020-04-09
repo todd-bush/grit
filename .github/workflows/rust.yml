@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: 98w/action-debugger@v0.1
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
