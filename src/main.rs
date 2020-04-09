@@ -29,6 +29,7 @@ struct Args {
     flag_include: Option<String>,
     flag_exclude: Option<String>,
     flag_image: bool,
+    flag_ignore_weekends: bool,
     cmd_fame: bool,
     cmd_bydate: bool,
 }
@@ -40,7 +41,7 @@ Grit.
 
 Usage:
     grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
-    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--verbose] [--debug]
+    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--ignore-weekends] [--verbose] [--debug]
 
 Command:
     fame: produces counts by commit author
@@ -57,6 +58,7 @@ Options:
     --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
     --file=<string>             output file for the by date file.  Sends to stdout by default
     --image                     creates an image for the by_date graph.  file is required
+    --ignore-weekends           ignore weekends when calculating # of commits
     -v, --verbose
 ";
 
@@ -124,6 +126,7 @@ fn run(args: &Args) -> Result<()> {
             end_date,
             args.flag_file.clone(),
             args.flag_image,
+            args.flag_ignore_weekends,
         );
         by_date::by_date(path, by_date_args)?;
     };

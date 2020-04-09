@@ -2,7 +2,7 @@
 use chrono::DateTime;
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::offset::{Local, TimeZone};
-use chrono::{Date, Datelike, NaiveDateTime};
+use chrono::{Date, Datelike, NaiveDateTime, Weekday};
 use csv::Writer;
 use git2::{Error, Repository, Time};
 use plotters::prelude::*;
@@ -30,6 +30,7 @@ pub struct ByDateArgs {
     end_date: Option<Date<Local>>,
     file: Option<String>,
     image: bool,
+    ignore_weekends: bool,
 }
 
 impl ByDateArgs {
@@ -38,18 +39,25 @@ impl ByDateArgs {
         end_date: Option<Date<Local>>,
         file: Option<String>,
         image: bool,
+        ignore_weekends: bool,
     ) -> Self {
         ByDateArgs {
             start_date,
             end_date,
             file,
             image,
+            ignore_weekends,
         }
     }
 }
 
 pub fn by_date(repo_path: &str, args: ByDateArgs) -> Result<(), Error> {
-    let output = process_date(repo_path, args.start_date, args.end_date)?;
+    let output = process_date(
+        repo_path,
+        args.start_date,
+        args.end_date,
+        args.ignore_weekends,
+    )?;
 
     if args.image {
         match create_output_image(
@@ -73,6 +81,7 @@ fn process_date(
     repo_path: &str,
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
+    ignore_weekends: bool,
 ) -> Result<Vec<ByDate>, Error> {
     let local_now = Local::now();
     let end_date = match end_date {
@@ -92,6 +101,9 @@ fn process_date(
             .single()
             .unwrap(),
     };
+
+    let end_date_sec = end_date.naive_local().and_hms(23, 59, 59).timestamp();
+    let start_date_sec = start_date.naive_local().and_hms(0, 0, 0).timestamp();
 
     let mut output_map: HashMap<String, i32> = HashMap::new();
 
@@ -118,11 +130,15 @@ fn process_date(
         let commit = filter_try!(repo.find_commit(id));
         let commit_time = commit.time().seconds();
 
-        if commit_time < start_date.naive_local().and_hms(0, 0, 0).timestamp() {
+        if ignore_weekends && is_weekend(commit_time) {
             return None;
         }
 
-        if commit_time > end_date.naive_local().and_hms(0, 0, 0).timestamp() {
+        if commit_time < start_date_sec {
+            return None;
+        }
+
+        if commit_time > end_date_sec {
             return None;
         }
 
@@ -161,6 +177,15 @@ fn convert_git_time(time: &Time) -> DateTime<Local> {
     local_now
         .timezone()
         .from_utc_datetime(&NaiveDateTime::from_timestamp(time.seconds(), 0))
+}
+
+fn is_weekend(ts: i64) -> bool {
+    let local_now = Local::now();
+    let d = local_now
+        .timezone()
+        .from_utc_datetime(&NaiveDateTime::from_timestamp(ts, 0));
+
+    d.weekday() == Weekday::Sun || d.weekday() == Weekday::Sat
 }
 
 fn display_output(
@@ -270,16 +295,36 @@ mod tests {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
         let start = Instant::now();
 
-        let args = ByDateArgs::new(None, None, None, false);
+        let args = ByDateArgs::new(None, None, None, false, false);
 
         let result = match by_date(".", args) {
             Ok(()) => true,
             Err(_e) => false,
         };
 
-        assert!(result, "test_by_date_no_ends resut {}", result);
-
         println!("completed test_by_date_no_ends in {:?}", start.elapsed());
+
+        assert!(result, "test_by_date_no_ends resut {}", result);
+    }
+
+    #[test]
+    fn test_by_date_no_weekends() {
+        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+        let start = Instant::now();
+
+        let args = ByDateArgs::new(None, None, None, false, true);
+
+        let result = match by_date(".", args) {
+            Ok(()) => true,
+            Err(_e) => false,
+        };
+
+        println!(
+            "completed test_by_date_no_weekends in {:?}",
+            start.elapsed()
+        );
+
+        assert!(result, "test_by_date_no_weekends resut {}", result);
     }
 
     #[test]
@@ -296,7 +341,7 @@ mod tests {
             .single()
             .unwrap();
 
-        let args = ByDateArgs::new(None, Some(ed), None, false);
+        let args = ByDateArgs::new(None, Some(ed), None, false, false);
 
         let start = Instant::now();
 
@@ -305,12 +350,12 @@ mod tests {
             Err(_e) => false,
         };
 
-        assert!(result, "test_by_date_end_date_only resut {}", result);
-
         println!(
             "completed test_by_date_end_date_only in {:?}",
             start.elapsed()
         );
+
+        assert!(result, "test_by_date_end_date_only resut {}", result);
     }
 
     #[test]
@@ -319,18 +364,49 @@ mod tests {
 
         let start = Instant::now();
 
-        let output = process_date(".", None, None);
+        let output = process_date(".", None, None, false);
 
         let result = match create_output_image(output.unwrap(), "test_image.png".to_string()) {
             Ok(()) => true,
             Err(_e) => false,
         };
 
-        assert!(result, "test_by_date_image resut {}", result);
-
         println!(
             "completed test_by_date_end_date_only_image in {:?}",
             start.elapsed()
         );
+
+        assert!(result, "test_by_date_image resut {}", result);
+    }
+
+    #[test]
+    fn test_is_weekday() {
+        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+
+        let dt_local = Local::now();
+
+        let utc_weekday =
+            NaiveDateTime::parse_from_str("2020-04-20 0:0", "%Y-%m-%d %H:%M").unwrap();
+
+        let start = Instant::now();
+        let weekday = dt_local
+            .timezone()
+            .from_local_datetime(&utc_weekday)
+            .unwrap();
+
+        let duration = start.elapsed();
+
+        assert!(!is_weekend(weekday.timestamp()), "test_is_weekday");
+
+        println!("test_is_weekday done in {:?}", duration);
+
+        let utc_weekend =
+            NaiveDateTime::parse_from_str("2020-04-19 0:0", "%Y-%m-%d %H:%M").unwrap();
+        let weekend = dt_local
+            .timezone()
+            .from_local_datetime(&utc_weekend)
+            .unwrap();
+
+        assert!(is_weekend(weekend.timestamp()), "test_is_weekday");
     }
 }
