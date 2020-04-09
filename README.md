@@ -3,6 +3,9 @@ Grit is a git repository analyzer written in [Rust](https://github.om/rust-lang)
 
 [Fame](https://github.com/oleander/git-fame-rb) is based on the "git fame" functionality.
 
+
+![Rust](https://github.com/todd-bush/grit/workflows/Rust/badge.svg?branch=master)
+
 # Usage
 ```
 Usage:
