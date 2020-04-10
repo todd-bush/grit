@@ -287,17 +287,22 @@ mod tests {
     use chrono::NaiveDate;
     use log::Level;
     use std::time::Instant;
+    use tempfile::TempDir;
 
     const LOG_LEVEL: Level = Level::Warn;
 
     #[test]
     fn test_by_date_no_ends() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+
+        let td: TempDir = crate::test::init_repo();
+        let path = td.path().to_str().unwrap();
+
         let start = Instant::now();
 
         let args = ByDateArgs::new(None, None, None, false, false);
 
-        let result = match by_date(".", args) {
+        let result = match by_date(path, args) {
             Ok(()) => true,
             Err(_e) => false,
         };
@@ -310,11 +315,15 @@ mod tests {
     #[test]
     fn test_by_date_no_weekends() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+
+        let td: TempDir = crate::test::init_repo();
+        let path = td.path().to_str().unwrap();
+
         let start = Instant::now();
 
         let args = ByDateArgs::new(None, None, None, false, true);
 
-        let result = match by_date(".", args) {
+        let result = match by_date(path, args) {
             Ok(()) => true,
             Err(_e) => false,
         };
@@ -331,6 +340,9 @@ mod tests {
     fn test_by_date_end_date_only() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
+        let td: TempDir = crate::test::init_repo();
+        let path = td.path().to_str().unwrap();
+
         let dt_local = Local::now();
 
         let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
@@ -345,7 +357,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let result = match by_date(".", args) {
+        let result = match by_date(path, args) {
             Ok(()) => true,
             Err(_e) => false,
         };
@@ -362,9 +374,12 @@ mod tests {
     fn test_by_date_image() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
+        let td: TempDir = crate::test::init_repo();
+        let path = td.path().to_str().unwrap();
+
         let start = Instant::now();
 
-        let output = process_date(".", None, None, false);
+        let output = process_date(path, None, None, false);
 
         let result = match create_output_image(output.unwrap(), "test_image.png".to_string()) {
             Ok(()) => true,

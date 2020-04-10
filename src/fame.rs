@@ -351,14 +351,18 @@ mod tests {
     use chrono::TimeZone;
     use log::Level;
     use std::time::Instant;
+    use tempfile::TempDir;
 
     #[test]
     fn test_process_file() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
+        let td: TempDir = crate::test::init_repo();
+        let path = td.path().to_str().unwrap();
+
         let start = Instant::now();
 
-        let result = process_file(".", "README.md", None, None).unwrap();
+        let result = process_file(&path, "README.md", None, None).unwrap();
 
         let duration = start.elapsed();
 
@@ -375,8 +379,11 @@ mod tests {
     fn test_process_fame() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
+        let td: TempDir = crate::test::init_repo();
+        let path = td.path().to_str().unwrap();
+
         let args = FameArgs::new(
-            ".".to_string(),
+            path.to_string(),
             Some("loc".to_string()),
             15,
             None,
@@ -403,6 +410,9 @@ mod tests {
     fn test_process_fame_start_date() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
+        let td: TempDir = crate::test::init_repo();
+        let path = td.path().to_str().unwrap();
+
         let dt_local = Local::now();
 
         let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
@@ -414,7 +424,7 @@ mod tests {
             .unwrap();
 
         let args = FameArgs::new(
-            ".".to_string(),
+            path.to_string(),
             Some("loc".to_string()),
             15,
             Some(ed),
@@ -441,6 +451,9 @@ mod tests {
     fn test_process_fame_end_date() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
+        let td: TempDir = crate::test::init_repo();
+        let path = td.path().to_str().unwrap();
+
         let dt_local = Local::now();
 
         let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
@@ -452,7 +465,7 @@ mod tests {
             .unwrap();
 
         let args = FameArgs::new(
-            ".".to_string(),
+            path.to_string(),
             Some("loc".to_string()),
             15,
             None,
@@ -479,8 +492,11 @@ mod tests {
     fn test_process_fame_include() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
+        let td: TempDir = crate::test::init_repo();
+        let path = td.path().to_str().unwrap();
+
         let args = FameArgs::new(
-            ".".to_string(),
+            path.to_string(),
             Some("loc".to_string()),
             15,
             None,
@@ -519,7 +535,7 @@ mod tests {
         let result = generate_file_list(".", Some("*.rs".to_string()), None).unwrap();
 
         assert!(
-            result.len() == 3,
+            result.len() == 4,
             "test_generate_file_list_all was {}",
             result.len()
         );
