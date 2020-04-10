@@ -10,11 +10,15 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    env:
+      working-directory: ${{ github.workspace }}
 
     steps:
     - uses: 98w/action-debugger@v0.1
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
+      working-directory: ${{ env.working-directory }}
     - name: Run tests
-      run: cargo test --verbose -- --test-threads=1 --nocapture 
+      run: cargo test --verbose -- --test-threads=1 --nocapture
+      working-directory: ${{ env.working-directory }}
