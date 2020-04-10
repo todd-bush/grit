@@ -24,22 +24,18 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     env:
-      RUST_BACKTRACE: 1
+      RUST_BACKTRACE: FULL
+      working-directory: ${{ github.workspace }}
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
 
       - uses: 98w/action-debugger@v0.1
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
       - name: Run cargo test
         uses: actions-rs/cargo@v1
+        working-directory: ${{ env.working-directory }}
         with:
           command: test
           args: -- --test-threads=1 --nocapture
