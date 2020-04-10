@@ -10,6 +10,7 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    container: rustlang/rust:latest
     env:
       working-directory: ${{ github.workspace }}
 
@@ -23,8 +24,9 @@ jobs:
   test:
     name: Test Suite
     runs-on: ubuntu-latest
+    container: rustlang/rust:latest
     env:
-      RUST_BACKTRACE: FULL
+      RUST_BACKTRACE: full
 
     steps:
       - name: Checkout sources
