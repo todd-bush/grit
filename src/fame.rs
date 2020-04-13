@@ -357,7 +357,7 @@ mod tests {
     fn test_process_file() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
-        let td: TempDir = crate::test::init_repo();
+        let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
         let start = Instant::now();
@@ -379,7 +379,7 @@ mod tests {
     fn test_process_fame() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
-        let td: TempDir = crate::test::init_repo();
+        let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
         let args = FameArgs::new(
@@ -410,7 +410,7 @@ mod tests {
     fn test_process_fame_start_date() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
-        let td: TempDir = crate::test::init_repo();
+        let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
         let dt_local = Local::now();
@@ -451,7 +451,7 @@ mod tests {
     fn test_process_fame_end_date() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
-        let td: TempDir = crate::test::init_repo();
+        let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
         let dt_local = Local::now();
@@ -492,7 +492,7 @@ mod tests {
     fn test_process_fame_include() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
-        let td: TempDir = crate::test::init_repo();
+        let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
         let args = FameArgs::new(

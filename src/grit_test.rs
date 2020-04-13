@@ -1,4 +1,5 @@
 use git2::build::RepoBuilder;
+extern crate tempfile;
 use tempfile::{Builder, TempDir};
 
 pub fn init_repo() -> TempDir {

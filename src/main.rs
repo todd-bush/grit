@@ -7,7 +7,10 @@ extern crate simple_logger;
 
 mod by_date;
 mod fame;
-mod test;
+
+#[cfg(test)]
+#[macro_use]
+mod grit_test;
 
 use crate::by_date::ByDateArgs;
 use crate::chrono::TimeZone;
