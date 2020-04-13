@@ -295,7 +295,7 @@ mod tests {
     fn test_by_date_no_ends() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
-        let td: TempDir = crate::test::init_repo();
+        let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
         let start = Instant::now();
@@ -316,7 +316,7 @@ mod tests {
     fn test_by_date_no_weekends() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
-        let td: TempDir = crate::test::init_repo();
+        let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
         let start = Instant::now();
@@ -340,7 +340,7 @@ mod tests {
     fn test_by_date_end_date_only() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
-        let td: TempDir = crate::test::init_repo();
+        let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
         let dt_local = Local::now();
@@ -374,7 +374,7 @@ mod tests {
     fn test_by_date_image() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
-        let td: TempDir = crate::test::init_repo();
+        let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
         let start = Instant::now();
