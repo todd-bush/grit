@@ -204,9 +204,14 @@ fn display_output(
 
     wtr.write_record(&["date", "count"])?;
 
+    let mut total_count = 0;
+
     output.iter().for_each(|r| {
         wtr.serialize((r.date.to_string(), r.count)).unwrap();
+        total_count += r.count;
     });
+
+    wtr.serialize(("Total", total_count)).unwrap();
 
     wtr.flush()?;
 
