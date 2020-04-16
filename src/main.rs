@@ -46,7 +46,7 @@ Grit.
 
 Usage:
     grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
-    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--ignore-weekends] [--ignore-gap-fills] [--verbose] [--debug]
+    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
 
 Command:
     fame: produces counts by commit author
@@ -64,7 +64,7 @@ Options:
     --file=<string>             output file for the by date file.  Sends to stdout by default
     --image                     creates an image for the by_date graph.  file is required
     --ignore-weekends           ignore weekends when calculating # of commits
-    --ignore-gap-fills          ignore filling empty dates with 0 commits
+    --ignore-gap-fill           ignore filling empty dates with 0 commits
     -v, --verbose
 ";
 
