@@ -1,7 +1,7 @@
 #[macro_use]
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::offset::{Local, TimeZone};
-use chrono::{Date, Datelike, NaiveDateTime, Weekday};
+use chrono::{Date, Datelike, Duration, NaiveDateTime, Weekday};
 use csv::Writer;
 use git2::{Error, Repository, Time};
 use plotters::prelude::*;
@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Write;
+use std::ops::Add;
 
 #[derive(Ord, Debug, PartialEq, Eq, PartialOrd)]
 struct ByDate {
@@ -165,6 +166,28 @@ fn process_date(
 
     output.sort();
 
+    let mut last_date: Date<Local> = output[0].date;
+
+    let mut i = 0;
+
+    loop {
+        if output[i].date != last_date {
+            info!(
+                "missing date {}, compare date {}",
+                format_date(last_date),
+                format_date(output[i].date)
+            );
+            output.insert(i, ByDate::new(last_date, 0));
+        }
+
+        last_date = last_date.add(Duration::days(1));
+        i += 1;
+
+        if i >= output.len() {
+            break;
+        }
+    }
+
     Ok(output)
 }
 
@@ -281,7 +304,7 @@ mod tests {
     use std::time::Instant;
     use tempfile::TempDir;
 
-    const LOG_LEVEL: Level = Level::Warn;
+    const LOG_LEVEL: Level = Level::Info;
 
     #[test]
     fn test_by_date_no_ends() {
