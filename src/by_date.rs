@@ -244,7 +244,15 @@ fn create_output_image(
     output: Vec<ByDate>,
     file: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let root = BitMapBackend::new(&file, (1024, 768)).into_drawing_area();
+    let image_size = if output.len() > 60 {
+        (1920, 960)
+    } else if output.len() > 35 {
+        (1280, 960)
+    } else {
+        (1027, 768)
+    };
+
+    let root = BitMapBackend::new(&file, image_size).into_drawing_area();
     root.fill(&WHITE)?;
 
     let (from_date, to_date) = (output[0].date, output.last().unwrap().date);
@@ -264,7 +272,6 @@ fn create_output_image(
 
     chart
         .configure_mesh()
-        .x_labels(output_count)
         .y_labels(output_count)
         .y_desc("Commits")
         .y_label_formatter(&|y| format!("{}", y))
