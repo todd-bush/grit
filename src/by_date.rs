@@ -178,11 +178,6 @@ fn process_date(
 
         loop {
             if output[i].date != last_date {
-                info!(
-                    "missing date {}, compare date {}",
-                    format_date(last_date),
-                    format_date(output[i].date)
-                );
                 output.insert(i, ByDate::new(last_date, 0));
             }
 
