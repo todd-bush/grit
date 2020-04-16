@@ -1,5 +1,4 @@
 #[macro_use]
-use chrono::DateTime;
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::offset::{Local, TimeZone};
 use chrono::{Date, Datelike, NaiveDateTime, Weekday};
@@ -15,12 +14,12 @@ use std::io::Write;
 
 #[derive(Ord, Debug, PartialEq, Eq, PartialOrd)]
 struct ByDate {
-    date: String,
+    date: Date<Local>,
     count: i32,
 }
 
 impl ByDate {
-    pub fn new(date: String, count: i32) -> Self {
+    pub fn new(date: Date<Local>, count: i32) -> Self {
         ByDate { date, count }
     }
 }
@@ -105,7 +104,7 @@ fn process_date(
     let end_date_sec = end_date.naive_local().and_hms(23, 59, 59).timestamp();
     let start_date_sec = start_date.naive_local().and_hms(0, 0, 0).timestamp();
 
-    let mut output_map: HashMap<String, i32> = HashMap::new();
+    let mut output_map: HashMap<Date<Local>, i32> = HashMap::new();
 
     let repo = Repository::open(repo_path).expect("Could not open repository");
 
@@ -151,11 +150,8 @@ fn process_date(
         let commit = commit?;
         let commit_time = &commit.time();
         let dt = convert_git_time(commit_time);
-        let date_string = format!("{}-{:0>2}-{:0>2}", dt.year(), dt.month(), dt.day());
 
-        info!("commit time {}", date_string);
-
-        let v = match output_map.entry(date_string) {
+        let v = match output_map.entry(dt) {
             Vacant(entry) => entry.insert(0),
             Occupied(entry) => entry.into_mut(),
         };
@@ -164,7 +160,7 @@ fn process_date(
 
     let mut output: Vec<ByDate> = output_map
         .iter()
-        .map(|(key, val)| ByDate::new(key.to_string(), *val))
+        .map(|(key, val)| ByDate::new(*key, *val))
         .collect();
 
     output.sort();
@@ -172,11 +168,12 @@ fn process_date(
     Ok(output)
 }
 
-fn convert_git_time(time: &Time) -> DateTime<Local> {
+fn convert_git_time(time: &Time) -> Date<Local> {
     let local_now = Local::now();
     local_now
         .timezone()
         .from_utc_datetime(&NaiveDateTime::from_timestamp(time.seconds(), 0))
+        .date()
 }
 
 fn is_weekend(ts: i64) -> bool {
@@ -207,7 +204,7 @@ fn display_output(
     let mut total_count = 0;
 
     output.iter().for_each(|r| {
-        wtr.serialize((r.date.to_string(), r.count)).unwrap();
+        wtr.serialize((format_date(r.date), r.count)).unwrap();
         total_count += r.count;
     });
 
@@ -225,10 +222,7 @@ fn create_output_image(
     let root = BitMapBackend::new(&file, (1024, 768)).into_drawing_area();
     root.fill(&WHITE)?;
 
-    let (from_date, to_date) = (
-        parse_time(&output[0].date),
-        parse_time(&output.last().unwrap().date),
-    );
+    let (from_date, to_date) = (output[0].date, output.last().unwrap().date);
 
     let output_count = output.len();
 
@@ -253,9 +247,7 @@ fn create_output_image(
         .draw()?;
 
     chart.draw_series(PointSeries::of_element(
-        output
-            .iter()
-            .map(|db| (parse_time(&db.date), db.count as f32)),
+        output.iter().map(|db| (db.date, db.count as f32)),
         5,
         ShapeStyle::from(&RED).filled(),
         &|cord, size, style| {
@@ -270,20 +262,15 @@ fn create_output_image(
     ))?;
 
     chart.draw_series(LineSeries::new(
-        output
-            .iter()
-            .map(|db| (parse_time(&db.date), db.count as f32)),
+        output.iter().map(|db| (db.date, db.count as f32)),
         &BLUE,
     ))?;
 
     Ok(())
 }
 
-fn parse_time(t: &str) -> Date<Local> {
-    Local
-        .datetime_from_str(&format!("{} 0:0", t), "%Y-%m-%d %H:%M")
-        .unwrap()
-        .date()
+fn format_date(d: Date<Local>) -> String {
+    format!("{}-{:0>2}-{:0>2}", d.year(), d.month(), d.day())
 }
 
 #[cfg(test)]
