@@ -31,6 +31,7 @@ pub struct ByDateArgs {
     file: Option<String>,
     image: bool,
     ignore_weekends: bool,
+    ignore_gap_fill: bool,
 }
 
 impl ByDateArgs {
@@ -40,6 +41,7 @@ impl ByDateArgs {
         file: Option<String>,
         image: bool,
         ignore_weekends: bool,
+        ignore_gap_fill: bool,
     ) -> Self {
         ByDateArgs {
             start_date,
@@ -47,6 +49,7 @@ impl ByDateArgs {
             file,
             image,
             ignore_weekends,
+            ignore_gap_fill,
         }
     }
 }
@@ -57,6 +60,7 @@ pub fn by_date(repo_path: &str, args: ByDateArgs) -> Result<(), Error> {
         args.start_date,
         args.end_date,
         args.ignore_weekends,
+        args.ignore_gap_fill,
     )?;
 
     if args.image {
@@ -82,6 +86,7 @@ fn process_date(
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
     ignore_weekends: bool,
+    ignore_gap_fill: bool,
 ) -> Result<Vec<ByDate>, Error> {
     let local_now = Local::now();
     let end_date = match end_date {
@@ -166,25 +171,27 @@ fn process_date(
 
     output.sort();
 
-    let mut last_date: Date<Local> = output[0].date;
+    if !ignore_gap_fill {
+        let mut last_date: Date<Local> = output[0].date;
 
-    let mut i = 0;
+        let mut i = 0;
 
-    loop {
-        if output[i].date != last_date {
-            info!(
-                "missing date {}, compare date {}",
-                format_date(last_date),
-                format_date(output[i].date)
-            );
-            output.insert(i, ByDate::new(last_date, 0));
-        }
+        loop {
+            if output[i].date != last_date {
+                info!(
+                    "missing date {}, compare date {}",
+                    format_date(last_date),
+                    format_date(output[i].date)
+                );
+                output.insert(i, ByDate::new(last_date, 0));
+            }
 
-        last_date = last_date.add(Duration::days(1));
-        i += 1;
+            last_date = last_date.add(Duration::days(1));
+            i += 1;
 
-        if i >= output.len() {
-            break;
+            if i >= output.len() {
+                break;
+            }
         }
     }
 
@@ -315,7 +322,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let args = ByDateArgs::new(None, None, None, false, false);
+        let args = ByDateArgs::new(None, None, None, false, false, false);
 
         let result = match by_date(path, args) {
             Ok(()) => true,
@@ -336,7 +343,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let args = ByDateArgs::new(None, None, None, false, true);
+        let args = ByDateArgs::new(None, None, None, false, true, true);
 
         let result = match by_date(path, args) {
             Ok(()) => true,
@@ -368,7 +375,7 @@ mod tests {
             .single()
             .unwrap();
 
-        let args = ByDateArgs::new(None, Some(ed), None, false, false);
+        let args = ByDateArgs::new(None, Some(ed), None, false, false, false);
 
         let start = Instant::now();
 
@@ -394,7 +401,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let output = process_date(path, None, None, false);
+        let output = process_date(path, None, None, false, true);
 
         let result = match create_output_image(output.unwrap(), "test_image.png".to_string()) {
             Ok(()) => true,
