@@ -13,7 +13,7 @@ use std::io;
 use std::io::Write;
 use std::ops::Add;
 
-#[derive(Ord, Debug, PartialEq, Eq, PartialOrd)]
+#[derive(Ord, Debug, PartialEq, Eq, PartialOrd, Clone)]
 struct ByDate {
     date: Date<Local>,
     count: i32,
@@ -172,25 +172,32 @@ fn process_date(
     output.sort();
 
     if !ignore_gap_fill {
-        let mut last_date: Date<Local> = output[0].date;
-
-        let mut i = 0;
-
-        loop {
-            if output[i].date != last_date {
-                output.insert(i, ByDate::new(last_date, 0));
-            }
-
-            last_date = last_date.add(Duration::days(1));
-            i += 1;
-
-            if i >= output.len() {
-                break;
-            }
-        }
+        output = fill_date_gaps(output);
     }
 
     Ok(output)
+}
+
+fn fill_date_gaps(input: Vec<ByDate>) -> Vec<ByDate> {
+    let mut last_date: Date<Local> = input[0].date;
+    let mut output = input;
+
+    let mut i = 0;
+
+    loop {
+        if output[i].date != last_date {
+            output.insert(i, ByDate::new(last_date, 0));
+        }
+
+        last_date = last_date.add(Duration::days(1));
+        i += 1;
+
+        if i >= output.len() {
+            break;
+        }
+    }
+
+    output
 }
 
 fn convert_git_time(time: &Time) -> Date<Local> {
@@ -367,16 +374,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let dt_local = Local::now();
-
-        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
-
-        let ed = dt_local
-            .timezone()
-            .from_local_date(&utc_dt)
-            .single()
-            .unwrap();
-
+        let ed = parse_date("2020-03-26");
         let args = ByDateArgs::new(None, Some(ed), None, false, false, false);
 
         let start = Instant::now();
@@ -447,5 +445,35 @@ mod tests {
             .unwrap();
 
         assert!(is_weekend(weekend.timestamp()), "test_is_weekday");
+    }
+
+    #[test]
+    fn test_fill_date_gaps() {
+        let test_data: Vec<ByDate> = [
+            ByDate::new(parse_date("2020-03-13"), 15),
+            ByDate::new(parse_date("2020-03-16"), 45),
+        ]
+        .to_vec();
+
+        let start = Instant::now();
+        let test_out = fill_date_gaps(test_data);
+        let duration = start.elapsed();
+
+        println!("test_fill_date_gaps done in {:?}", duration);
+
+        assert_eq!(test_out.len(), 4);
+        assert_eq!(test_out[2].count, 0);
+    }
+
+    fn parse_date(date_str: &str) -> Date<Local> {
+        let dt_local = Local::now();
+
+        let utc_dt = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+
+        dt_local
+            .timezone()
+            .from_local_date(&utc_dt)
+            .single()
+            .unwrap()
     }
 }
