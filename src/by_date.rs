@@ -417,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn test_is_weekday() {
+    fn test_is_weekend() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
         let dt_local = Local::now();
@@ -435,7 +435,7 @@ mod tests {
 
         assert!(!is_weekend(weekday.timestamp()), "test_is_weekday");
 
-        println!("test_is_weekday done in {:?}", duration);
+        println!("test_is_weekend done in {:?}", duration);
 
         let utc_weekend =
             NaiveDateTime::parse_from_str("2020-04-19 0:0", "%Y-%m-%d %H:%M").unwrap();
