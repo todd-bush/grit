@@ -116,7 +116,7 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
         let rp = rpa.clone();
         let inner_pbg = arc_pgb.clone();
         let inner_per_file = arc_per_file.clone();
-        rt.block_on(rt.spawn(async move {
+        match rt.block_on(rt.spawn(async move {
             inner_per_file.write().await.insert(
                 fne.to_string(),
                 process_file(rp.as_ref(), fne.as_ref(), start_date, end_date)
@@ -124,7 +124,10 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
                     .unwrap(),
             );
             inner_pbg.write().await.inc(1);
-        }));
+        })) {
+            Ok(_) => {}
+            Err(e) => panic!(e),
+        };
     }
 
     rt.block_on(arc_pgb.read()).finish();
