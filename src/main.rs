@@ -2,8 +2,8 @@
 extern crate log;
 extern crate chrono;
 extern crate csv;
-extern crate scoped_threadpool;
 extern crate simple_logger;
+extern crate tokio;
 
 mod by_date;
 mod fame;
