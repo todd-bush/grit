@@ -5,7 +5,7 @@ use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
+
 use std::path::Path;
 use std::sync::Arc;
 use tokio::runtime;
@@ -14,7 +14,6 @@ use tokio::sync::RwLock;
 pub struct FameArgs {
     path: String,
     sort: Option<String>,
-    threads: usize,
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
     include: Option<String>,
@@ -25,7 +24,6 @@ impl FameArgs {
     pub fn new(
         path: String,
         sort: Option<String>,
-        threads: usize,
         start_date: Option<Date<Local>>,
         end_date: Option<Date<Local>>,
         include: Option<String>,
@@ -34,7 +32,6 @@ impl FameArgs {
         FameArgs {
             path,
             sort,
-            threads,
             start_date,
             end_date,
             include,
@@ -402,7 +399,6 @@ mod tests {
         let args = FameArgs::new(
             path.to_string(),
             Some("loc".to_string()),
-            15,
             None,
             None,
             None,
@@ -443,7 +439,6 @@ mod tests {
         let args = FameArgs::new(
             path.to_string(),
             Some("loc".to_string()),
-            15,
             Some(ed),
             None,
             None,
@@ -484,7 +479,6 @@ mod tests {
         let args = FameArgs::new(
             path.to_string(),
             Some("loc".to_string()),
-            15,
             None,
             Some(ed),
             None,
@@ -515,7 +509,6 @@ mod tests {
         let args = FameArgs::new(
             path.to_string(),
             Some("loc".to_string()),
-            15,
             None,
             None,
             Some("*.rs,*.md".to_string()),

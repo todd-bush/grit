@@ -20,7 +20,6 @@ Options:
     --debug                     enables debug
     -h, --help                  displays help
     --sort=<field>              sort field, either 'commit' (default), 'loc', 'files'
-    --threads=<number>          number of concurrent processing threads, default is 10
     --start-date=<string>       start date in YYYY-MM-DD format.
     --end-date=<string>         end date in YYYY-MM-DD format.
     --include=<string>          comma delimited, glob file path to include path1/*,path2/*
