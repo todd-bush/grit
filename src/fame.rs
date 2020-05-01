@@ -1,15 +1,15 @@
 use chrono::{Date, Local};
+use futures::future::join_all;
 use git2::{BlameOptions, Error, Repository, StatusOptions};
 use glob::Pattern;
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
-
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tokio::runtime;
-use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
 
 pub struct FameArgs {
     path: String,
@@ -91,7 +91,7 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
 
     let file_names = generate_file_list(repo_path.as_ref(), args.include, args.exclude)?;
 
-    let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
+    let mut per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
     let arc_per_file = Arc::new(RwLock::new(per_file));
 
     let start_date = args.start_date;
@@ -104,38 +104,41 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
         .threaded_scheduler()
         .thread_name("grit-thread-runner")
         .build()
-        .unwrap();
+        .expect("Failed to create threadpool.");
 
     let rpa = Arc::new(repo_path);
 
+    let mut tasks: Vec<JoinHandle<Result<Vec<BlameOutput>, ()>>> = vec![];
+
     for file_name in file_names {
-        let fne = Arc::new(file_name);
+        let fne = file_name.clone();
         let rp = rpa.clone();
-        let inner_pbg = arc_pgb.clone();
-        let inner_per_file = arc_per_file.clone();
-        match rt.block_on(rt.spawn(async move {
-            inner_per_file.write().await.insert(
-                fne.to_string(),
-                process_file(rp.as_ref(), fne.as_ref(), start_date, end_date)
-                    .await
-                    .unwrap(),
-            );
-            inner_pbg.write().await.inc(1);
-        })) {
-            Ok(_) => {}
-            Err(e) => panic!(e),
-        };
+        let fne = fne.clone();
+        tasks.push(rt.spawn(async move {
+            process_file(&rp.clone(), &fne, start_date, end_date)
+                .await
+                .map_err(|err| {
+                    panic!(err);
+                })
+        }));
     }
 
-    rt.block_on(arc_pgb.read()).finish();
+    rt.block_on(join_all(tasks)).iter().for_each(|pr| {
+        arc_per_file.write().unwrap().insert(
+            "file".to_string(),
+            pr.as_ref().unwrap().as_ref().unwrap().to_vec(),
+        );
+        arc_pgb.write().unwrap().inc(1);
+    });
+    arc_pgb.read().unwrap().finish();
 
-    let max_files = rt.block_on(arc_per_file.read()).keys().len();
+    let max_files = arc_per_file.read().unwrap().keys().len();
     let mut max_lines = 0;
 
     let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
     let mut total_commits: Vec<String> = Vec::new();
 
-    for (key, value) in rt.block_on(arc_per_file.read()).iter() {
+    for (key, value) in arc_per_file.read().unwrap().iter() {
         for val in value.iter() {
             let om = match output_map.entry(val.author.clone()) {
                 Vacant(entry) => entry.insert(FameOutputLine::new()),
