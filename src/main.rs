@@ -2,8 +2,8 @@
 extern crate log;
 extern crate chrono;
 extern crate csv;
-extern crate scoped_threadpool;
 extern crate simple_logger;
+extern crate tokio;
 
 mod by_date;
 mod fame;
@@ -25,7 +25,6 @@ use std::str;
 struct Args {
     flag_debug: bool,
     flag_sort: Option<String>,
-    flag_threads: Option<usize>,
     flag_verbose: bool,
     flag_start_date: Option<String>,
     flag_end_date: Option<String>,
@@ -56,7 +55,6 @@ Options:
     --debug                     enables debug
     -h, --help                  displays help
     --sort=<field>              sort field, either 'commit' (default), 'loc', 'files'
-    --threads=<number>          number of concurrent processing threads, default is 10
     --start-date=<string>       start date in YYYY-MM-DD format.
     --end-date=<string>         end date in YYYY-MM-DD format.
     --include=<string>          comma delimited, glob file path to include path1/*,path2/*
@@ -103,15 +101,9 @@ fn run(args: &Args) -> Result<()> {
     };
 
     if args.cmd_fame {
-        let threads: usize = match &args.flag_threads {
-            None => DEFAULT_THREADS,
-            Some(b) => *b,
-        };
-
         let fame_args = FameArgs::new(
             path.to_string(),
             args.flag_sort.clone(),
-            threads,
             start_date,
             end_date,
             args.flag_include.clone(),
