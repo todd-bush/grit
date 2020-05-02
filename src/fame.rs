@@ -91,7 +91,7 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
 
     let file_names = generate_file_list(repo_path.as_ref(), args.include, args.exclude)?;
 
-    let mut per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
+    let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
     let arc_per_file = Arc::new(RwLock::new(per_file));
 
     let start_date = args.start_date;
