@@ -1,9 +1,8 @@
-#[macro_use]
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::offset::{Local, TimeZone};
 use chrono::{Date, Datelike, Duration, NaiveDateTime, Weekday};
 use csv::Writer;
-use git2::{Error, Repository, Time};
+use git2::{Repository, Time};
 use plotters::prelude::*;
 use std::boxed::Box;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -54,7 +53,9 @@ impl ByDateArgs {
     }
 }
 
-pub fn by_date(repo_path: &str, args: ByDateArgs) -> Result<(), Error> {
+type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+pub fn by_date(repo_path: &str, args: ByDateArgs) -> GenResult<()> {
     let output = process_date(
         repo_path,
         args.start_date,
@@ -87,7 +88,7 @@ fn process_date(
     end_date: Option<Date<Local>>,
     ignore_weekends: bool,
     ignore_gap_fill: bool,
-) -> Result<Vec<ByDate>, Error> {
+) -> GenResult<Vec<ByDate>> {
     let local_now = Local::now();
     let end_date = match end_date {
         Some(d) => d,
@@ -217,10 +218,7 @@ fn is_weekend(ts: i64) -> bool {
     d.weekday() == Weekday::Sun || d.weekday() == Weekday::Sat
 }
 
-fn display_output(
-    output: Vec<ByDate>,
-    file: Option<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn display_output(output: Vec<ByDate>, file: Option<String>) -> GenResult<()> {
     let w = match file {
         Some(f) => {
             let file = File::create(f)?;
@@ -247,10 +245,7 @@ fn display_output(
     Ok(())
 }
 
-fn create_output_image(
-    output: Vec<ByDate>,
-    file: String,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn create_output_image(output: Vec<ByDate>, file: String) -> GenResult<()> {
     let image_size = if output.len() > 60 {
         (1920, 960)
     } else if output.len() > 35 {
