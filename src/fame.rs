@@ -1,6 +1,6 @@
 use chrono::{Date, Local};
 use futures::future::join_all;
-use git2::{BlameOptions, Error, Repository, StatusOptions};
+use git2::{BlameOptions, Repository, StatusOptions};
 use glob::Pattern;
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
@@ -86,7 +86,9 @@ impl FameOutputLine {
     }
 }
 
-pub fn process_fame(args: FameArgs) -> Result<(), Error> {
+type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+pub fn process_fame(args: FameArgs) -> GenResult<()> {
     let repo_path: String = args.path.clone();
 
     let file_names = generate_file_list(repo_path.as_ref(), args.include, args.exclude)?;
@@ -128,7 +130,7 @@ pub fn process_fame(args: FameArgs) -> Result<(), Error> {
                     pr
                 })
                 .map_err(|err| {
-                    panic!(err);
+                    error!("Error in processing filenames: {}", err);
                 })
         }));
     }
@@ -196,7 +198,7 @@ fn generate_file_list(
     path: &str,
     include: Option<String>,
     exclude: Option<String>,
-) -> Result<Vec<String>, Error> {
+) -> GenResult<Vec<String>> {
     let repo = Repository::open(path)?;
 
     let mut status_opts = StatusOptions::new();
@@ -259,7 +261,7 @@ fn pretty_print_table(
     tot_loc: usize,
     tot_files: usize,
     tot_commits: usize,
-) -> Result<(), Error> {
+) -> GenResult<()> {
     println!("Stats on Repo");
     println!("Total files: {}", tot_files);
     println!("Total commits: {}", tot_commits);
@@ -301,7 +303,7 @@ async fn process_file(
     file_name: &str,
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
-) -> Result<Vec<BlameOutput>, Error> {
+) -> GenResult<Vec<BlameOutput>> {
     let repo = Repository::open(repo_path)?;
     let mut bo = BlameOptions::new();
     let path = Path::new(file_name);
@@ -366,35 +368,6 @@ mod tests {
     use log::Level;
     use std::time::Instant;
     use tempfile::TempDir;
-
-    // #[test]
-    // fn test_process_file() {
-    //     simple_logger::init_with_level(Level::Info).unwrap_or(());
-    //
-    //     let td: TempDir = crate::grit_test::init_repo();
-    //     let td_arc = Arc::new(td);
-    //
-    //     let rt = runtime::Builder::new().build().unwrap();
-    //
-    //     let start = Instant::now();
-    //     let mut result: Vec<BlameOutput> = Vec::new();
-    //
-    //     rt.spawn(async move {
-    //         let path = td_arc.path().to_str().unwrap();
-    //         result = try_join!(process_file(path, "README.md", None, None))
-    //             .unwrap()
-    //             .0;
-    //         assert!(
-    //             result.len() >= 9,
-    //             "test_process_file result was {}",
-    //             result.len()
-    //         );
-    //     });
-    //
-    //     let duration = start.elapsed();
-    //
-    //     println!("completed test_process_file in {:?}", duration);
-    // }
 
     #[test]
     fn test_process_fame() {
