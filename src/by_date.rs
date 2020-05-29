@@ -96,7 +96,7 @@ fn process_date(
             .timezone()
             .from_local_date(&MAX_DATE)
             .single()
-            .unwrap(),
+            .expect("Cannot unwrap MAX DATE"),
     };
 
     let start_date = match start_date {
@@ -105,7 +105,7 @@ fn process_date(
             .timezone()
             .from_local_date(&MIN_DATE)
             .single()
-            .unwrap(),
+            .expect("Cannot unwrap MIN DATE"),
     };
 
     let end_date_sec = end_date.naive_local().and_hms(23, 59, 59).timestamp();
@@ -234,11 +234,13 @@ fn display_output(output: Vec<ByDate>, file: Option<String>) -> GenResult<()> {
     let mut total_count = 0;
 
     output.iter().for_each(|r| {
-        wtr.serialize((format_date(r.date), r.count)).unwrap();
+        wtr.serialize((format_date(r.date), r.count))
+            .expect("Cannot serialize table row");
         total_count += r.count;
     });
 
-    wtr.serialize(("Total", total_count)).unwrap();
+    wtr.serialize(("Total", total_count))
+        .expect("Cannot serialize Total row");
 
     wtr.flush()?;
 
@@ -257,13 +259,19 @@ fn create_output_image(output: Vec<ByDate>, file: String) -> GenResult<()> {
     let root = BitMapBackend::new(&file, image_size).into_drawing_area();
     root.fill(&WHITE)?;
 
-    let (from_date, to_date) = (output[0].date, output.last().unwrap().date);
+    let (from_date, to_date) = (
+        output[0].date,
+        output
+            .last()
+            .expect("Cannot find last entry in output")
+            .date,
+    );
 
     let output_count = output.len();
 
     let max_count_obj = output.iter().max_by(|x, y| x.count.cmp(&y.count));
 
-    let max_count = max_count_obj.unwrap().count as f32 + 5.0;
+    let max_count = max_count_obj.expect("Cannot access max count object").count as f32 + 5.0;
 
     let mut chart = ChartBuilder::on(&root)
         .x_label_area_size(35)

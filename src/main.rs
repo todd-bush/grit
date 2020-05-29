@@ -138,7 +138,11 @@ fn parse_datelocal(date_string: &str) -> Result<Date<Local>> {
     let utc_dt = NaiveDate::parse_from_str(date_string, "%Y-%m-%d");
 
     match utc_dt {
-        Ok(d) => Ok(local_now.timezone().from_local_date(&d).single().unwrap()),
+        Ok(d) => Ok(local_now
+            .timezone()
+            .from_local_date(&d)
+            .single()
+            .expect("Cannot unwrap date")),
         Err(_e) => {
             panic!("Dates must be in the 'YYYY-MM-DD' format ");
         }

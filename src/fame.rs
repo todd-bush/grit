@@ -124,9 +124,12 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
                 .map(|pr| {
                     arc_per_file_c
                         .write()
-                        .unwrap()
+                        .expect("Cannot write to shared hash map")
                         .insert(fne.to_string(), (*pr).to_vec());
-                    arc_pgb_c.write().unwrap().inc(1);
+                    arc_pgb_c
+                        .write()
+                        .expect("Cannot write to shared progress bar")
+                        .inc(1);
                     pr
                 })
                 .map_err(|err| {
@@ -136,15 +139,26 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
     }
 
     rt.block_on(join_all(tasks));
-    arc_pgb.read().unwrap().finish();
+    arc_pgb
+        .read()
+        .expect("Cannot read shared progress bar")
+        .finish();
 
-    let max_files = arc_per_file.read().unwrap().keys().len();
+    let max_files = arc_per_file
+        .read()
+        .expect("Cannot read shared hash map")
+        .keys()
+        .len();
     let mut max_lines = 0;
 
     let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
     let mut total_commits: Vec<String> = Vec::new();
 
-    for (key, value) in arc_per_file.read().unwrap().iter() {
+    for (key, value) in arc_per_file
+        .read()
+        .expect("Cannot read shared hash map")
+        .iter()
+    {
         for val in value.iter() {
             let om = match output_map.entry(val.author.clone()) {
                 Vacant(entry) => entry.insert(FameOutputLine::new()),
@@ -210,20 +224,35 @@ fn generate_file_list(
 
     let statuses = repo.statuses(Some(&mut status_opts))?;
 
+    macro_rules! format_tostr {
+        ($msg:expr, $s:expr) => {
+            format!($msg, $s).as_str()
+        };
+    }
+
     let includes: Vec<Pattern> = match include {
-        Some(e) => e.split(',').map(|s| Pattern::new(s).unwrap()).collect(),
+        Some(e) => e
+            .split(',')
+            .map(|s| Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s)))
+            .collect(),
         None => Vec::new(),
     };
 
     let excludes: Vec<Pattern> = match exclude {
-        Some(e) => e.split(',').map(|s| Pattern::new(s).unwrap()).collect(),
+        Some(e) => e
+            .split(',')
+            .map(|s| Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s)))
+            .collect(),
         None => Vec::new(),
     };
 
     let file_names: Vec<String> = statuses
         .iter()
         .filter_map(|se| {
-            let s = se.path().unwrap().to_string();
+            let s = se
+                .path()
+                .expect("Cannot create string from path")
+                .to_string();
             let exclude_s = s.clone();
             let mut result = None;
 
@@ -233,7 +262,11 @@ fn generate_file_list(
             } else {
                 for p in &includes {
                     if p.matches(&s) {
-                        result = Some(se.path().unwrap().to_string());
+                        result = Some(
+                            se.path()
+                                .expect("Cannot create string from path")
+                                .to_string(),
+                        );
                         break;
                     };
                 }
