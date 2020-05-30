@@ -6,6 +6,7 @@ extern crate simple_logger;
 extern crate tokio;
 
 mod by_date;
+mod by_people;
 mod fame;
 
 #[cfg(test)]
