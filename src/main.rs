@@ -5,6 +5,9 @@ extern crate csv;
 extern crate simple_logger;
 extern crate tokio;
 
+#[macro_use]
+mod utils;
+
 mod by_date;
 mod by_people;
 mod fame;

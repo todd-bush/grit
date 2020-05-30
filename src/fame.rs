@@ -224,12 +224,6 @@ fn generate_file_list(
 
     let statuses = repo.statuses(Some(&mut status_opts))?;
 
-    macro_rules! format_tostr {
-        ($msg:expr, $s:expr) => {
-            format!($msg, $s).as_str()
-        };
-    }
-
     let includes: Vec<Pattern> = match include {
         Some(e) => e
             .split(',')
@@ -558,7 +552,7 @@ mod tests {
         let result = generate_file_list(".", Some("*.rs".to_string()), None).unwrap();
 
         assert!(
-            result.len() == 4,
+            result.len() >= 6,
             "test_generate_file_list_all was {}",
             result.len()
         );

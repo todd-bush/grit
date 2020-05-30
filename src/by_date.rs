@@ -119,15 +119,6 @@ fn process_date(
     revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME);
     revwalk.push_head()?;
 
-    macro_rules! filter_try {
-        ($e:expr) => {
-            match $e {
-                Ok(t) => t,
-                Err(e) => return Some(Err(e)),
-            }
-        };
-    }
-
     debug!("filtering revwalk");
 
     let revwalk = revwalk.filter_map(|id| {
