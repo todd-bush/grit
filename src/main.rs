@@ -16,6 +16,8 @@ mod fame;
 #[macro_use]
 mod grit_test;
 
+pub use crate::utils::grit_utils;
+
 use crate::by_date::ByDateArgs;
 use crate::chrono::TimeZone;
 use crate::fame::FameArgs;
