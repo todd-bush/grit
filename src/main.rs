@@ -5,12 +5,17 @@ extern crate csv;
 extern crate simple_logger;
 extern crate tokio;
 
+#[macro_use]
+mod utils;
+
 mod by_date;
 mod fame;
 
 #[cfg(test)]
 #[macro_use]
 mod grit_test;
+
+pub use crate::utils::grit_utils;
 
 use crate::by_date::ByDateArgs;
 use crate::chrono::TimeZone;

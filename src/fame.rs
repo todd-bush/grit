@@ -1,7 +1,7 @@
+use crate::utils::grit_utils;
 use chrono::{Date, Local};
 use futures::future::join_all;
-use git2::{BlameOptions, Repository, StatusOptions};
-use glob::Pattern;
+use git2::{BlameOptions, Repository};
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -91,7 +91,8 @@ type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub fn process_fame(args: FameArgs) -> GenResult<()> {
     let repo_path: String = args.path.clone();
 
-    let file_names = generate_file_list(repo_path.as_ref(), args.include, args.exclude)?;
+    let file_names =
+        grit_utils::generate_file_list(repo_path.as_ref(), args.include, args.exclude)?;
 
     let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
     let arc_per_file = Arc::new(RwLock::new(per_file));
@@ -206,87 +207,6 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
     };
 
     pretty_print_table(output, max_lines, max_files, max_commits)
-}
-
-fn generate_file_list(
-    path: &str,
-    include: Option<String>,
-    exclude: Option<String>,
-) -> GenResult<Vec<String>> {
-    let repo = Repository::open(path)?;
-
-    let mut status_opts = StatusOptions::new();
-    status_opts.include_untracked(false);
-    status_opts.include_unmodified(true);
-    status_opts.include_ignored(false);
-    status_opts.include_unreadable(false);
-    status_opts.exclude_submodules(true);
-
-    let statuses = repo.statuses(Some(&mut status_opts))?;
-
-    macro_rules! format_tostr {
-        ($msg:expr, $s:expr) => {
-            format!($msg, $s).as_str()
-        };
-    }
-
-    let includes: Vec<Pattern> = match include {
-        Some(e) => e
-            .split(',')
-            .map(|s| Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s)))
-            .collect(),
-        None => Vec::new(),
-    };
-
-    let excludes: Vec<Pattern> = match exclude {
-        Some(e) => e
-            .split(',')
-            .map(|s| Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s)))
-            .collect(),
-        None => Vec::new(),
-    };
-
-    let file_names: Vec<String> = statuses
-        .iter()
-        .filter_map(|se| {
-            let s = se
-                .path()
-                .expect("Cannot create string from path")
-                .to_string();
-            let exclude_s = s.clone();
-            let mut result = None;
-
-            if includes.is_empty() {
-                info!("including {} to the file list", s);
-                result = Some(s);
-            } else {
-                for p in &includes {
-                    if p.matches(&s) {
-                        result = Some(
-                            se.path()
-                                .expect("Cannot create string from path")
-                                .to_string(),
-                        );
-                        break;
-                    };
-                }
-            }
-
-            if !excludes.is_empty() && result.is_some() {
-                for p in &excludes {
-                    if p.matches(&exclude_s) {
-                        result = None;
-                        info!("removing {} from the file list", exclude_s);
-                        break;
-                    }
-                }
-            }
-
-            result
-        })
-        .collect();
-
-    Ok(file_names)
 }
 
 fn pretty_print_table(
@@ -540,38 +460,5 @@ mod tests {
         assert!(result, "test_process_fame_include result was {}", result);
 
         println!("completed test_process_fame_include in {:?}", duration);
-    }
-
-    #[test]
-    fn test_generate_file_list_all() {
-        let result = generate_file_list(".", None, None).unwrap();
-
-        assert!(
-            result.len() >= 6,
-            "test_generate_file_list_all was {}",
-            result.len()
-        );
-    }
-
-    #[test]
-    fn test_generate_file_list_rust() {
-        let result = generate_file_list(".", Some("*.rs".to_string()), None).unwrap();
-
-        assert!(
-            result.len() == 4,
-            "test_generate_file_list_all was {}",
-            result.len()
-        );
-    }
-
-    #[test]
-    fn test_generate_file_list_exclude_rust() {
-        let result = generate_file_list(".", None, Some("*.rs".to_string())).unwrap();
-
-        assert!(
-            result.len() >= 3,
-            "test_generate_file_list_exclude_rust was {}",
-            result.len()
-        );
     }
 }

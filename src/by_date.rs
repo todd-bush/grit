@@ -113,20 +113,12 @@ fn process_date(
 
     let mut output_map: HashMap<Date<Local>, i32> = HashMap::new();
 
-    let repo = Repository::open(repo_path).expect("Could not open repository");
+    let repo = Repository::open(repo_path)
+        .expect(format_tostr!("Could not open repo for path {}", repo_path));
 
     let mut revwalk = repo.revwalk()?;
     revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME);
     revwalk.push_head()?;
-
-    macro_rules! filter_try {
-        ($e:expr) => {
-            match $e {
-                Ok(t) => t,
-                Err(e) => return Some(Err(e)),
-            }
-        };
-    }
 
     debug!("filtering revwalk");
 
