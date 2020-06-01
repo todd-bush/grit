@@ -1,8 +1,9 @@
+use crate::utils::grit_utils;
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::offset::{Local, TimeZone};
 use chrono::{Date, Datelike, Duration, NaiveDateTime, Weekday};
 use csv::Writer;
-use git2::{Repository, Time};
+use git2::Repository;
 use plotters::prelude::*;
 use std::boxed::Box;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -148,7 +149,7 @@ fn process_date(
     for commit in revwalk {
         let commit = commit?;
         let commit_time = &commit.time();
-        let dt = convert_git_time(commit_time);
+        let dt = grit_utils::convert_git_time(commit_time);
 
         let v = match output_map.entry(dt) {
             Vacant(entry) => entry.insert(0),
@@ -191,14 +192,6 @@ fn fill_date_gaps(input: Vec<ByDate>) -> Vec<ByDate> {
     }
 
     output
-}
-
-fn convert_git_time(time: &Time) -> Date<Local> {
-    let local_now = Local::now();
-    local_now
-        .timezone()
-        .from_utc_datetime(&NaiveDateTime::from_timestamp(time.seconds(), 0))
-        .date()
 }
 
 fn is_weekend(ts: i64) -> bool {

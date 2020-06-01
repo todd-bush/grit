@@ -9,6 +9,7 @@ extern crate tokio;
 mod utils;
 
 mod by_date;
+mod by_file;
 mod fame;
 
 #[cfg(test)]

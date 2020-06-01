@@ -17,7 +17,8 @@ macro_rules! format_tostr {
 
 pub mod grit_utils {
 
-    use git2::{Repository, StatusOptions};
+    use chrono::{Date, Local, NaiveDateTime, TimeZone};
+    use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
 
     type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -95,6 +96,14 @@ pub mod grit_utils {
             .collect();
 
         Ok(file_names)
+    }
+
+    pub fn convert_git_time(time: &Time) -> Date<Local> {
+        let local_now = Local::now();
+        local_now
+            .timezone()
+            .from_utc_datetime(&NaiveDateTime::from_timestamp(time.seconds(), 0))
+            .date()
     }
 }
 
