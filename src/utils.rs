@@ -119,7 +119,7 @@ mod tests {
         let result = grit_utils::generate_file_list(".", Some("*.rs".to_string()), None).unwrap();
 
         assert!(
-            result.len() >= 6,
+            result.len() >= 5,
             "test_generate_file_list_all was {}",
             result.len()
         );
