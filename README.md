@@ -16,6 +16,7 @@ Usage:
 Command:
     fame: produces counts by commit author
     bydate: produces commit counts between two specific dates.
+    byfile: produces by author commit counts for a specific file
 
 Options:
     --debug                     enables debug
@@ -36,6 +37,8 @@ Options:
 # Output
 
 ```grit bydate``` will create a csv of date and commit count to stdout or file.  Option to produce image.
+
+```grit byfile``` will create a csv of author, date, and commit counts to stdout or file.
 
 ```grit fame``` will create a table of metrics per author.  This may take a while for repos with long commit history.
 
