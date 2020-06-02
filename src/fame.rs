@@ -359,15 +359,9 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let dt_local = Local::now();
-
         let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
 
-        let ed = dt_local
-            .timezone()
-            .from_local_date(&utc_dt)
-            .single()
-            .unwrap();
+        let ed = Local.from_local_date(&utc_dt).single().unwrap();
 
         let args = FameArgs::new(
             path.to_string(),
@@ -399,15 +393,9 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let dt_local = Local::now();
-
         let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
 
-        let ed = dt_local
-            .timezone()
-            .from_local_date(&utc_dt)
-            .single()
-            .unwrap();
+        let ed = Local.from_local_date(&utc_dt).single().unwrap();
 
         let args = FameArgs::new(
             path.to_string(),

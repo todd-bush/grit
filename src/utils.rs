@@ -99,9 +99,7 @@ pub mod grit_utils {
     }
 
     pub fn convert_git_time(time: &Time) -> Date<Local> {
-        let local_now = Local::now();
-        local_now
-            .timezone()
+        Local
             .from_utc_datetime(&NaiveDateTime::from_timestamp(time.seconds(), 0))
             .date()
     }

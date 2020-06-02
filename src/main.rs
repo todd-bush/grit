@@ -152,12 +152,10 @@ fn run(args: &Args) -> Result<()> {
 }
 
 fn parse_datelocal(date_string: &str) -> Result<Date<Local>> {
-    let local_now = Local::now();
     let utc_dt = NaiveDate::parse_from_str(date_string, "%Y-%m-%d");
 
     match utc_dt {
-        Ok(d) => Ok(local_now
-            .timezone()
+        Ok(d) => Ok(Local
             .from_local_date(&d)
             .single()
             .expect("Cannot unwrap date")),

@@ -90,11 +90,9 @@ fn process_date(
     ignore_weekends: bool,
     ignore_gap_fill: bool,
 ) -> GenResult<Vec<ByDate>> {
-    let local_now = Local::now();
     let end_date = match end_date {
         Some(d) => d,
-        None => local_now
-            .timezone()
+        None => Local
             .from_local_date(&MAX_DATE)
             .single()
             .expect("Cannot unwrap MAX DATE"),
@@ -102,8 +100,7 @@ fn process_date(
 
     let start_date = match start_date {
         Some(d) => d,
-        None => local_now
-            .timezone()
+        None => Local
             .from_local_date(&MIN_DATE)
             .single()
             .expect("Cannot unwrap MIN DATE"),
@@ -195,10 +192,7 @@ fn fill_date_gaps(input: Vec<ByDate>) -> Vec<ByDate> {
 }
 
 fn is_weekend(ts: i64) -> bool {
-    let local_now = Local::now();
-    let d = local_now
-        .timezone()
-        .from_utc_datetime(&NaiveDateTime::from_timestamp(ts, 0));
+    let d = Local.from_utc_datetime(&NaiveDateTime::from_timestamp(ts, 0));
 
     d.weekday() == Weekday::Sun || d.weekday() == Weekday::Sat
 }
@@ -404,16 +398,11 @@ mod tests {
     fn test_is_weekend() {
         simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
 
-        let dt_local = Local::now();
-
         let utc_weekday =
             NaiveDateTime::parse_from_str("2020-04-20 0:0", "%Y-%m-%d %H:%M").unwrap();
 
         let start = Instant::now();
-        let weekday = dt_local
-            .timezone()
-            .from_local_datetime(&utc_weekday)
-            .unwrap();
+        let weekday = Local.from_local_datetime(&utc_weekday).unwrap();
 
         let duration = start.elapsed();
 
@@ -423,10 +412,7 @@ mod tests {
 
         let utc_weekend =
             NaiveDateTime::parse_from_str("2020-04-19 0:0", "%Y-%m-%d %H:%M").unwrap();
-        let weekend = dt_local
-            .timezone()
-            .from_local_datetime(&utc_weekend)
-            .unwrap();
+        let weekend = Local.from_local_datetime(&utc_weekend).unwrap();
 
         assert!(is_weekend(weekend.timestamp()), "test_is_weekday");
     }
@@ -450,14 +436,8 @@ mod tests {
     }
 
     fn parse_date(date_str: &str) -> Date<Local> {
-        let dt_local = Local::now();
-
         let utc_dt = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
 
-        dt_local
-            .timezone()
-            .from_local_date(&utc_dt)
-            .single()
-            .unwrap()
+        Local.from_local_date(&utc_dt).single().unwrap()
     }
 }
