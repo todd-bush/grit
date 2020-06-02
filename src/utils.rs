@@ -17,7 +17,7 @@ macro_rules! format_tostr {
 
 pub mod grit_utils {
 
-    use chrono::{Date, Local, NaiveDateTime, TimeZone};
+    use chrono::{Date, Datelike, Local, NaiveDateTime, TimeZone};
     use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
 
@@ -105,6 +105,10 @@ pub mod grit_utils {
             .from_utc_datetime(&NaiveDateTime::from_timestamp(time.seconds(), 0))
             .date()
     }
+
+    pub fn format_date(d: Date<Local>) -> String {
+        format!("{}-{:0>2}-{:0>2}", d.year(), d.month(), d.day())
+    }
 }
 
 #[cfg(test)]
@@ -144,4 +148,6 @@ mod tests {
             result.len()
         );
     }
+
+    // TODO add test for format date
 }

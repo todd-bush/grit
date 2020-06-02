@@ -1,8 +1,12 @@
 use crate::utils::grit_utils;
 use chrono::{Date, Local};
+use csv::Writer;
 use git2::{BlameOptions, Repository};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
+use std::fs::File;
+use std::io;
+use std::io::Write;
 use std::path::Path;
 use std::time::Instant;
 
@@ -20,7 +24,7 @@ impl ByFileArgs {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 struct ByFile {
     name: String,
     day: Date<Local>,
@@ -36,9 +40,14 @@ impl ByFile {
 type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn by_file(args: ByFileArgs) -> GenResult<()> {
-    let results = process_file(args);
+    let mut results = match process_file(args) {
+        Ok(r) => r,
+        Err(err) => panic!("Error while processing file:  {:?}", err),
+    };
 
-    Ok(())
+    results.sort_by(|a, b| b.day.cmp(&a.day));
+
+    display_csv(results, None)
 }
 
 fn process_file(args: ByFileArgs) -> GenResult<Vec<ByFile>> {
@@ -86,6 +95,30 @@ fn process_file(args: ByFileArgs) -> GenResult<Vec<ByFile>> {
     Ok(results)
 }
 
+fn display_csv(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
+    let w = match file {
+        Some(f) => {
+            let file = File::create(f)?;
+            Box::new(file) as Box<dyn Write>
+        }
+        None => Box::new(io::stdout()) as Box<dyn Write>,
+    };
+
+    let mut writer = Writer::from_writer(w);
+
+    writer.write_record(&["author", "date", "loc"])?;
+
+    data.iter().for_each(|d| {
+        writer
+            .serialize((d.name.clone(), grit_utils::format_date(d.day), d.loc))
+            .expect("Could not write record");
+    });
+
+    writer.flush()?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -111,5 +144,27 @@ mod tests {
         assert!(results.len() > 0, "Results length was 0 len");
 
         info!("results: {:?}", results);
+    }
+
+    #[test]
+    fn test_by_file() {
+        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+
+        let td: TempDir = crate::grit_test::init_repo();
+
+        let args = ByFileArgs::new(
+            td.path().to_str().unwrap().to_string(),
+            "src/by_date.rs".to_string(),
+        );
+
+        let s = match by_file(args) {
+            Ok(()) => true,
+            Err(e) => {
+                error!("test_by_file ended in error {:?}", e);
+                false
+            }
+        };
+
+        assert!(s, "See error above");
     }
 }

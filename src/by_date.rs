@@ -219,7 +219,7 @@ fn display_output(output: Vec<ByDate>, file: Option<String>) -> GenResult<()> {
     let mut total_count = 0;
 
     output.iter().for_each(|r| {
-        wtr.serialize((format_date(r.date), r.count))
+        wtr.serialize((grit_utils::format_date(r.date), r.count))
             .expect("Cannot serialize table row");
         total_count += r.count;
     });
@@ -294,10 +294,6 @@ fn create_output_image(output: Vec<ByDate>, file: String) -> GenResult<()> {
     ))?;
 
     Ok(())
-}
-
-fn format_date(d: Date<Local>) -> String {
-    format!("{}-{:0>2}-{:0>2}", d.year(), d.month(), d.day())
 }
 
 #[cfg(test)]
