@@ -11,6 +11,7 @@ Grit is a git repository analyzer written in [Rust](https://github.com/rust-lang
 Usage:
     grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
+    grit byfile [--in-file=<string>] [--file=<string>] [--verbose] [--debug]
 
 Command:
     fame: produces counts by commit author
@@ -25,6 +26,7 @@ Options:
     --include=<string>          comma delimited, glob file path to include path1/*,path2/*
     --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
     --file=<string>             output file for the by date file.  Sends to stdout by default
+    --in-file=<string>          input file for by_file
     --image                     creates an image for the by_date graph.  file is required
     --ignore-weekends           ignore weekends when calculating # of commits
     --ignore-gap-fill           ignore filling empty dates with 0 commits

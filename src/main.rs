@@ -19,6 +19,7 @@ mod grit_test;
 pub use crate::utils::grit_utils;
 
 use crate::by_date::ByDateArgs;
+use crate::by_file::ByFileArgs;
 use crate::chrono::TimeZone;
 use crate::fame::FameArgs;
 use chrono::{Date, Local, NaiveDate};
@@ -40,8 +41,10 @@ struct Args {
     flag_image: bool,
     flag_ignore_weekends: bool,
     flag_ignore_gap_fill: bool,
+    flag_in_file: Option<String>,
     cmd_fame: bool,
     cmd_bydate: bool,
+    cmd_byfile: bool,
 }
 
 pub const DEFAULT_THREADS: usize = 10;
@@ -52,6 +55,7 @@ Grit.
 Usage:
     grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
+    grit byfile [--in-file=<string>] [--file=<string>] [--verbose] [--debug]
 
 Command:
     fame: produces counts by commit author
@@ -66,6 +70,7 @@ Options:
     --include=<string>          comma delimited, glob file path to include path1/*,path2/*
     --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
     --file=<string>             output file for the by date file.  Sends to stdout by default
+    --in-file=<string>          input file for by_file
     --image                     creates an image for the by_date graph.  file is required
     --ignore-weekends           ignore weekends when calculating # of commits
     --ignore-gap-fill           ignore filling empty dates with 0 commits
@@ -134,6 +139,13 @@ fn run(args: &Args) -> Result<()> {
             args.flag_ignore_gap_fill,
         );
         by_date::by_date(path, by_date_args)?;
+    } else if args.cmd_byfile {
+        let in_file = match args.flag_in_file.clone() {
+            Some(f) => f,
+            None => panic!("Argument 'flag_in_file' is required for byfile"),
+        };
+        let by_file_args = ByFileArgs::new(path.to_string(), in_file, args.flag_file.clone());
+        by_file::by_file(by_file_args)?;
     };
 
     Ok(())
