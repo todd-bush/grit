@@ -2,6 +2,7 @@ use crate::utils::grit_utils;
 use chrono::{Date, Local};
 use csv::Writer;
 use git2::{BlameOptions, Repository};
+use indicatif::ProgressBar;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::fs::File;
@@ -64,6 +65,7 @@ fn process_file(args: ByFileArgs) -> GenResult<Vec<ByFile>> {
 
     let blame = repo.blame_file(path, Some(&mut bo))?;
     let mut auth_to_loc: HashMap<ByFile, usize> = HashMap::new();
+    let pgb = ProgressBar::new(blame.len() as u64);
 
     for hunk in blame.iter() {
         let sig = hunk.final_signature();
@@ -78,7 +80,11 @@ fn process_file(args: ByFileArgs) -> GenResult<Vec<ByFile>> {
             Occupied(entry) => entry.into_mut(),
         };
         *v += hunk.lines_in_hunk();
+
+        pgb.inc(1);
     }
+
+    pgb.finish();
 
     let results = auth_to_loc
         .iter()
