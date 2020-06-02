@@ -109,45 +109,50 @@ pub mod grit_utils {
     pub fn format_date(d: Date<Local>) -> String {
         format!("{}-{:0>2}-{:0>2}", d.year(), d.month(), d.day())
     }
-}
 
-#[cfg(test)]
-mod tests {
+    #[cfg(test)]
+    mod tests {
 
-    use super::*;
+        use super::*;
 
-    #[test]
-    fn test_generate_file_list_all() {
-        let result = grit_utils::generate_file_list(".", None, None).unwrap();
+        #[test]
+        fn test_generate_file_list_all() {
+            let result = generate_file_list(".", None, None).unwrap();
 
-        assert!(
-            result.len() >= 6,
-            "test_generate_file_list_all was {}",
-            result.len()
-        );
+            assert!(
+                result.len() >= 6,
+                "test_generate_file_list_all was {}",
+                result.len()
+            );
+        }
+
+        #[test]
+        fn test_generate_file_list_rust() {
+            let result = generate_file_list(".", Some("*.rs".to_string()), None).unwrap();
+
+            assert!(
+                result.len() >= 5,
+                "test_generate_file_list_all was {}",
+                result.len()
+            );
+        }
+
+        #[test]
+        fn test_generate_file_list_exclude_rust() {
+            let result = generate_file_list(".", None, Some("*.rs".to_string())).unwrap();
+
+            assert!(
+                result.len() >= 3,
+                "test_generate_file_list_exclude_rust was {}",
+                result.len()
+            );
+        }
+
+        #[test]
+        fn test_format_date() {
+            let test_date = Local.ymd(2020, 3, 13);
+
+            assert_eq!(format_date(test_date), "2020-03-13");
+        }
     }
-
-    #[test]
-    fn test_generate_file_list_rust() {
-        let result = grit_utils::generate_file_list(".", Some("*.rs".to_string()), None).unwrap();
-
-        assert!(
-            result.len() >= 5,
-            "test_generate_file_list_all was {}",
-            result.len()
-        );
-    }
-
-    #[test]
-    fn test_generate_file_list_exclude_rust() {
-        let result = grit_utils::generate_file_list(".", None, Some("*.rs".to_string())).unwrap();
-
-        assert!(
-            result.len() >= 3,
-            "test_generate_file_list_exclude_rust was {}",
-            result.len()
-        );
-    }
-
-    // TODO add test for format date
 }
