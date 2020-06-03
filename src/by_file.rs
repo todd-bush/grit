@@ -2,6 +2,7 @@ use crate::utils::grit_utils;
 use chrono::{Date, Local};
 use csv::Writer;
 use git2::{BlameOptions, Repository};
+use plotters::prelude::*;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::fs::File;
@@ -121,6 +122,23 @@ fn display_csv(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
     });
 
     writer.flush()?;
+
+    Ok(())
+}
+
+fn display_image(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
+    let f = match file {
+        Some(f) => f,
+        None => panic!("Filename is manditory for images"),
+    };
+
+    let root = BitMapBackend::new(&f, (1280, 960)).into_drawing_area();
+    root.fill(&WHITE)?;
+
+    let (from_date, to_date) = (
+        data[0].day,
+        data.last().expect("Cannot find last entry in output").day,
+    );
 
     Ok(())
 }
