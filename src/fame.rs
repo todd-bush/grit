@@ -1,7 +1,8 @@
 use crate::utils::grit_utils;
-use chrono::{Date, Local};
+use chrono::naive::{MAX_DATE, MIN_DATE};
+use chrono::{Date, Local, TimeZone};
 use futures::future::join_all;
-use git2::{BlameOptions, Repository};
+use git2::{Delta, DiffOptions, Oid, Repository};
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -89,10 +90,18 @@ impl FameOutputLine {
 type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn process_fame(args: FameArgs) -> GenResult<()> {
-    let repo_path: String = args.path.clone();
+    let repo_path = args.path.clone();
+    let rpc = args.path.clone();
 
-    let file_names =
-        grit_utils::generate_file_list(repo_path.as_ref(), args.include, args.exclude)?;
+    let rpa = Arc::new(repo_path);
+
+    let file_names: Vec<String> = if let Some(_) = args.start_date {
+        find_filename_by_commit_time(rpc, args.start_date, args.end_date)?
+    } else if let Some(_) = args.end_date {
+        find_filename_by_commit_time(rpc, args.start_date, args.end_date)?
+    } else {
+        grit_utils::generate_file_list(&rpc, args.include, args.exclude)?
+    };
 
     let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
     let arc_per_file = Arc::new(RwLock::new(per_file));
@@ -108,8 +117,6 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
         .thread_name("grit-thread-runner")
         .build()
         .expect("Failed to create threadpool.");
-
-    let rpa = Arc::new(repo_path);
 
     let mut tasks: Vec<JoinHandle<Result<Vec<BlameOutput>, ()>>> = vec![];
 
@@ -251,16 +258,15 @@ fn pretty_print_table(
     Ok(())
 }
 
-async fn process_file(
-    repo_path: &str,
+async fn process_file<'a>(
+    repo_path: &'a str,
     file_name: &str,
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
 ) -> GenResult<Vec<BlameOutput>> {
     let repo = Repository::open(repo_path)?;
-    let mut bo = BlameOptions::new();
     let path = Path::new(file_name);
-    let blame = repo.blame_file(path, Some(&mut bo))?;
+    let blame = repo.blame_file(path, None)?;
 
     let mut blame_map: HashMap<BlameOutput, usize> = HashMap::new();
 
@@ -309,6 +315,139 @@ async fn process_file(
             key
         })
         .collect();
+
+    Ok(result)
+}
+
+fn find_filename_by_commit_time(
+    repo_path: String,
+    start_date: Option<Date<Local>>,
+    end_date: Option<Date<Local>>,
+) -> GenResult<Vec<String>> {
+    let repo_path = repo_path.clone();
+    let end_date = match end_date {
+        Some(d) => d,
+        None => Local
+            .from_local_date(&MAX_DATE)
+            .single()
+            .expect("Cannot unwrap MAX DATE"),
+    };
+
+    let start_date = match start_date {
+        Some(d) => d,
+        None => Local
+            .from_local_date(&MIN_DATE)
+            .single()
+            .expect("Cannot unwrap MIN DATE"),
+    };
+
+    let end_date_sec = end_date.naive_local().and_hms(23, 59, 59).timestamp();
+    let start_date_sec = start_date.naive_local().and_hms(0, 0, 0).timestamp();
+
+    let repo = Repository::open(repo_path.clone()).expect(format_tostr!(
+        "Could not open repo for path {}",
+        repo_path.clone()
+    ));
+
+    let mut revwalk = repo.revwalk()?;
+    revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME);
+    revwalk.push_head()?;
+
+    let result: Vec<String> = Vec::new();
+    let aresult = Arc::new(RwLock::new(result));
+
+    let mut rt = runtime::Builder::new()
+        .threaded_scheduler()
+        .thread_name("grit-thread-runner-proess-commits")
+        .build()
+        .expect("Failed to create threadpool.");
+
+    let mut tasks: Vec<JoinHandle<Result<Vec<String>, ()>>> = vec![];
+    let rp: Arc<String> = Arc::new(repo_path);
+    let mut aoid: Arc<&[u8]>;
+
+    for id in revwalk {
+        let oid_bytes: Vec<u8> = id?.as_bytes().to_vec().clone();
+        aoid = Arc::new(&oid_bytes);
+        let boid = aoid.clone();
+        let caresult = aresult.clone();
+        let rpa = rp.clone();
+
+        tasks.push(rt.spawn(async move {
+            process_commit(&boid, rpa.to_string(), &start_date_sec, &end_date_sec)
+                .await
+                .map(|fns| {
+                    caresult
+                        .write()
+                        .expect("cannot lock result for write")
+                        .extend(fns.clone());
+                    fns
+                })
+                .map_err(|e| {
+                    error!("Error while processing commits: {:?}", e);
+                })
+        }));
+    }
+
+    rt.block_on(join_all(tasks));
+
+    aresult
+        .write()
+        .expect("cannot lock aresult for sorting")
+        .sort();
+    aresult
+        .write()
+        .expect("Cannot lock aresult for deduping")
+        .dedup();
+
+    let final_result: Vec<String> = aresult
+        .read()
+        .expect("Cannot open aresult for transfer")
+        .iter()
+        .map(|f| f.clone())
+        .collect();
+
+    Ok(final_result)
+}
+
+async fn process_commit(
+    boid: &[u8],
+    repo_path: String,
+    start_date_sec: &i64,
+    end_date_sec: &i64,
+) -> GenResult<Vec<String>> {
+    let repo = Repository::open(repo_path)?;
+
+    let oid = Oid::from_bytes(boid)?;
+    let commit = repo.find_commit(oid)?;
+    let commit_time = commit.time().seconds();
+
+    info!("Commit Id:{}, time:{}", commit.id(), commit_time);
+    let mut result: Vec<String> = Vec::new();
+
+    if commit_time > *start_date_sec && commit_time < *end_date_sec {
+        let mut dops = DiffOptions::new();
+        dops.include_ignored(false)
+            .include_unmodified(false)
+            .include_unreadable(false)
+            .recurse_ignored_dirs(false)
+            .recurse_untracked_dirs(false);
+
+        let tree = commit.tree()?;
+        let diff = repo.diff_tree_to_workdir(Some(&tree), Some(&mut dops));
+
+        diff.iter().for_each(|d| {
+            d.deltas().into_iter().for_each(|df| {
+                if df.status() == Delta::Added || df.status() == Delta::Modified {
+                    info!("delta status: {:?}", df.status());
+                    let file_name =
+                        String::from_utf8_lossy(df.old_file().path_bytes().unwrap()).to_string();
+                    info!("modified file: {}", file_name);
+                    result.push(file_name);
+                }
+            });
+        })
+    }
 
     Ok(result)
 }
@@ -448,5 +587,28 @@ mod tests {
         assert!(result, "test_process_fame_include result was {}", result);
 
         println!("completed test_process_fame_include in {:?}", duration);
+    }
+
+    #[test]
+    fn test_find_filename_by_commit_time() {
+        simple_logger::init_with_level(Level::Info).unwrap_or(());
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td
+            .path()
+            .to_str()
+            .expect("Cannot unwrap temp path string")
+            .to_string();
+
+        let utc_dt = NaiveDate::parse_from_str("2020-05-26", "%Y-%m-%d").unwrap();
+
+        let ed = Local.from_local_date(&utc_dt).single().unwrap();
+
+        let file_names = find_filename_by_commit_time(path, Some(ed), None);
+
+        info!(
+            "test_find_filename_by_commit_time output:  {:?}",
+            file_names
+        );
     }
 }

@@ -112,10 +112,11 @@ pub mod grit_utils {
     mod tests {
 
         use super::*;
+        const DIR: &str = ".";
 
         #[test]
         fn test_generate_file_list_all() {
-            let result = generate_file_list(".", None, None).unwrap();
+            let result = generate_file_list(DIR, None, None).unwrap();
 
             assert!(
                 result.len() >= 6,
@@ -126,7 +127,7 @@ pub mod grit_utils {
 
         #[test]
         fn test_generate_file_list_rust() {
-            let result = generate_file_list(".", Some("*.rs".to_string()), None).unwrap();
+            let result = generate_file_list(DIR, Some("*.rs".to_string()), None).unwrap();
 
             assert!(
                 result.len() >= 5,
@@ -137,7 +138,7 @@ pub mod grit_utils {
 
         #[test]
         fn test_generate_file_list_exclude_rust() {
-            let result = generate_file_list(".", None, Some("*.rs".to_string())).unwrap();
+            let result = generate_file_list(DIR, None, Some("*.rs".to_string())).unwrap();
 
             assert!(
                 result.len() >= 3,
