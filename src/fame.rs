@@ -364,11 +364,11 @@ fn find_filename_by_commit_time(
 
     let mut tasks: Vec<JoinHandle<Result<Vec<String>, ()>>> = vec![];
     let rp: Arc<String> = Arc::new(repo_path);
-    let mut aoid: Arc<&[u8]>;
 
     for id in revwalk {
-        let oid_bytes: Vec<u8> = id?.as_bytes().to_vec().clone();
-        aoid = Arc::new(&oid_bytes);
+        let oid_bytes = id?.as_ref().to_owned();
+        let ob = oid_bytes.clone();
+        let aoid = Arc::new(ob);
         let boid = aoid.clone();
         let caresult = aresult.clone();
         let rpa = rp.clone();
