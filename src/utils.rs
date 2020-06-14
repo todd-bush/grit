@@ -66,7 +66,7 @@ pub mod grit_utils {
                 let mut result = None;
 
                 if includes.is_empty() {
-                    info!("including {} to the file list", s);
+                    debug!("including {} to the file list", s);
                     result = Some(s);
                 } else {
                     for p in &includes {
@@ -85,7 +85,7 @@ pub mod grit_utils {
                     for p in &excludes {
                         if p.matches(&exclude_s) {
                             result = None;
-                            info!("removing {} from the file list", exclude_s);
+                            debug!("removing {} from the file list", exclude_s);
                             break;
                         }
                     }
