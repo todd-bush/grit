@@ -1,7 +1,7 @@
 use crate::utils::grit_utils;
 use chrono::{Date, Local};
 use csv::Writer;
-use git2::{BlameOptions, Repository};
+use git2::Repository;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::fs::File;
@@ -61,11 +61,10 @@ fn process_file(args: ByFileArgs) -> GenResult<Vec<ByFile>> {
     let start = Instant::now();
 
     let repo = Repository::open(args.repo_path)?;
-    let mut bo = BlameOptions::new();
 
     let path = Path::new(args.full_path_filename.as_str());
 
-    let blame = repo.blame_file(path, Some(&mut bo))?;
+    let blame = repo.blame_file(path, None)?;
     let mut auth_to_loc: HashMap<ByFile, usize> = HashMap::new();
 
     for hunk in blame.iter() {
