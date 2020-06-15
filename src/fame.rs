@@ -1,13 +1,14 @@
 use crate::utils::grit_utils;
-use chrono::{Date, Local};
+use chrono::{Date, Local, TimeZone};
 use futures::future::join_all;
-use git2::{BlameOptions, Repository};
+use git2::{BlameOptions, Oid, Repository};
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 use tokio::runtime;
 use tokio::task::JoinHandle;
 
@@ -89,16 +90,19 @@ impl FameOutputLine {
 type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn process_fame(args: FameArgs) -> GenResult<()> {
-    let repo_path: String = args.path.clone();
+    let repo_path = args.path.clone();
+    let rpc = args.path.clone();
 
-    let file_names =
-        grit_utils::generate_file_list(repo_path.as_ref(), args.include, args.exclude)?;
+    let rpa = Arc::new(repo_path);
+
+    let file_names: Vec<String> = grit_utils::generate_file_list(&rpc, args.include, args.exclude)?;
+
+    let (earliest_commit, latest_commit) = find_commit_range(rpc, args.start_date, args.end_date)?;
+
+    info!("Early, Late: {:?},{:?}", earliest_commit, latest_commit);
 
     let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
     let arc_per_file = Arc::new(RwLock::new(per_file));
-
-    let start_date = args.start_date;
-    let end_date = args.end_date;
 
     let pgb = ProgressBar::new(file_names.len() as u64);
     let arc_pgb = Arc::new(RwLock::new(pgb));
@@ -109,8 +113,6 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
         .build()
         .expect("Failed to create threadpool.");
 
-    let rpa = Arc::new(repo_path);
-
     let mut tasks: Vec<JoinHandle<Result<Vec<BlameOutput>, ()>>> = vec![];
 
     for file_name in file_names {
@@ -119,8 +121,12 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
         let fne = fne.clone();
         let arc_pgb_c = arc_pgb.clone();
         let arc_per_file_c = arc_per_file.clone();
+
+        let ec = earliest_commit.clone();
+        let lc = latest_commit.clone();
+
         tasks.push(rt.spawn(async move {
-            process_file(&rp.clone(), &fne, start_date, end_date)
+            process_file(&rp.clone(), &fne, ec, lc)
                 .await
                 .map(|pr| {
                     arc_per_file_c
@@ -251,44 +257,37 @@ fn pretty_print_table(
     Ok(())
 }
 
-async fn process_file(
-    repo_path: &str,
+async fn process_file<'a>(
+    repo_path: &'a str,
     file_name: &str,
-    start_date: Option<Date<Local>>,
-    end_date: Option<Date<Local>>,
+    earliest_commit: Option<Vec<u8>>,
+    latest_commit: Option<Vec<u8>>,
 ) -> GenResult<Vec<BlameOutput>> {
     let repo = Repository::open(repo_path)?;
-    let mut bo = BlameOptions::new();
     let path = Path::new(file_name);
-    let blame = repo.blame_file(path, Some(&mut bo))?;
+    let start = Instant::now();
+
+    let mut blame_ops = BlameOptions::new();
+
+    if let Some(ev) = earliest_commit {
+        let oid: Oid = Oid::from_bytes(&ev)?;
+        let commit = repo.find_commit(oid)?;
+        blame_ops.oldest_commit(commit.id());
+    };
+
+    if let Some(ov) = latest_commit {
+        let oid: Oid = Oid::from_bytes(&ov)?;
+        let commit = repo.find_commit(oid)?;
+        blame_ops.newest_commit(commit.id());
+    };
+
+    let blame = repo.blame_file(path, Some(&mut blame_ops))?;
+
+    info!("Blame executed in {:?}", start.elapsed());
 
     let mut blame_map: HashMap<BlameOutput, usize> = HashMap::new();
 
-    let start_date_sec = match start_date {
-        Some(d) => Some(d.naive_local().and_hms(0, 0, 0).timestamp()),
-        None => None,
-    };
-
-    let end_date_sec = match end_date {
-        Some(d) => Some(d.naive_local().and_hms(23, 59, 59).timestamp()),
-        None => None,
-    };
-
     for hunk in blame.iter() {
-        if let Some(d) = start_date_sec {
-            let commit = repo.find_commit(hunk.final_commit_id())?;
-            if d > commit.time().seconds() {
-                continue;
-            }
-        }
-
-        if let Some(d) = end_date_sec {
-            let commit = repo.find_commit(hunk.final_commit_id())?;
-            if d < commit.time().seconds() {
-                continue;
-            }
-        }
-
         let sig = hunk.final_signature();
         let signame = String::from_utf8_lossy(sig.name_bytes()).to_string();
         let file_blame = BlameOutput::new(signame, hunk.final_commit_id().to_string());
@@ -313,13 +312,67 @@ async fn process_file(
     Ok(result)
 }
 
+fn find_commit_range(
+    repo_path: String,
+    start_date: Option<Date<Local>>,
+    end_date: Option<Date<Local>>,
+) -> GenResult<(Option<Vec<u8>>, Option<Vec<u8>>)> {
+    let mut earliest_commit = None;
+    let mut latest_commit = None;
+
+    let repo = Repository::open(repo_path.clone()).expect(format_tostr!(
+        "Could not open repo for path {}",
+        repo_path.clone()
+    ));
+
+    if let Some(d) = start_date {
+        let start_date_sec = d.naive_local().and_hms(0, 0, 0).timestamp();
+        let mut revwalk = repo.revwalk()?;
+        revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME);
+        revwalk.push_head()?;
+
+        for id in revwalk {
+            let oid = id?;
+            let commit = repo.find_commit(oid)?;
+            let commit_time = commit.time().seconds();
+
+            if commit_time >= start_date_sec {
+                earliest_commit = Some(oid.as_bytes().iter().map(|b| *b).collect())
+            } else {
+                break;
+            }
+        }
+    }
+
+    if let Some(d) = end_date {
+        let end_date_sec = d.naive_local().and_hms(23, 59, 59).timestamp();
+
+        let mut revwalk = repo.revwalk()?;
+        revwalk.set_sorting(git2::Sort::REVERSE | git2::Sort::TIME);
+        revwalk.push_head()?;
+
+        for id in revwalk {
+            let oid = id?;
+            let commit = repo.find_commit(oid)?;
+            let commit_time = commit.time().seconds();
+
+            if commit_time <= end_date_sec {
+                latest_commit = Some(oid.as_bytes().iter().map(|b| *b).collect())
+            } else {
+                break;
+            }
+        }
+    }
+
+    Ok((earliest_commit, latest_commit))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use chrono::NaiveDate;
     use chrono::TimeZone;
     use log::Level;
-    use std::time::Instant;
     use tempfile::TempDir;
 
     #[test]
@@ -448,5 +501,36 @@ mod tests {
         assert!(result, "test_process_fame_include result was {}", result);
 
         println!("completed test_process_fame_include in {:?}", duration);
+    }
+
+    #[test]
+    fn test_find_commit_range_no() {
+        simple_logger::init_with_level(Level::Info).unwrap_or(());
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+
+        let (early, late) = find_commit_range(path.to_string(), None, None).unwrap();
+
+        assert_eq!(early, None);
+        assert_eq!(late, None);
+    }
+
+    #[test]
+    fn test_find_commit_range_early() {
+        simple_logger::init_with_level(Level::Info).unwrap_or(());
+
+        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
+
+        let ed = Local.from_local_date(&utc_dt).single().unwrap();
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+
+        let (early, late) = find_commit_range(path.to_string(), Some(ed), None).unwrap();
+
+        //info!("early = {:?}", early.unwrap());
+
+        assert!(early.unwrap().len() > 0);
+        assert_eq!(late, None);
     }
 }
