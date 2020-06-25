@@ -139,6 +139,29 @@ fn display_image(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
         data.last().expect("Cannot find last entry in output").day,
     );
 
+    let output_count = data.len();
+
+    let max_size_obj = data.iter().max_by(|a, b| a.loc.cmp(&b.loc));
+    let max_count = match max_size_obj {
+        Some(m) => m.loc as f32 + 5.0,
+        None => panic!("could not find max count in image creation"),
+    };
+
+    let mut chart = ChartBuilder::on(&root)
+        .x_label_area_size(35)
+        .y_label_area_size(40)
+        .margin(5)
+        .caption("Commits by Date", ("sans-serif", 32.0).into_font())
+        .build_ranged(from_date..to_date, 0f32..max_count)?;
+
+    chart
+        .configure_mesh()
+        .y_labels(output_count)
+        .y_desc("Commits")
+        .y_label_formatter(&|y| format!("{}", y))
+        .x_label_formatter(&|x| format!("{}", x.format("%Y-%m-%d")))
+        .draw()?;
+
     Ok(())
 }
 
