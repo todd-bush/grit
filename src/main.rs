@@ -55,7 +55,7 @@ Grit.
 Usage:
     grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
-    grit byfile [--in-file=<string>] [--file=<string>] [--verbose] [--debug]
+    grit byfile [--in-file=<string>] [--file=<string>] [--image] [--verbose] [--debug]
 
 Command:
     fame: produces counts by commit author
@@ -71,7 +71,7 @@ Options:
     --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
     --file=<string>             output file for the by date file.  Sends to stdout by default
     --in-file=<string>          input file for by_file
-    --image                     creates an image for the by_date graph.  file is required
+    --image                     creates an image for the by_date & by_file graph.  file is required
     --ignore-weekends           ignore weekends when calculating # of commits
     --ignore-gap-fill           ignore filling empty dates with 0 commits
     -v, --verbose
@@ -144,7 +144,12 @@ fn run(args: &Args) -> Result<()> {
             Some(f) => f,
             None => panic!("Argument 'flag_in_file' is required for byfile"),
         };
-        let by_file_args = ByFileArgs::new(path.to_string(), in_file, args.flag_file.clone());
+        let by_file_args = ByFileArgs::new(
+            path.to_string(),
+            in_file,
+            args.flag_file.clone(),
+            args.flag_image,
+        );
         by_file::by_file(by_file_args)?;
     };
 

@@ -15,14 +15,21 @@ pub struct ByFileArgs {
     repo_path: String,
     full_path_filename: String,
     output_file: Option<String>,
+    image: bool,
 }
 
 impl ByFileArgs {
-    pub fn new(repo_path: String, full_path_filename: String, output_file: Option<String>) -> Self {
+    pub fn new(
+        repo_path: String,
+        full_path_filename: String,
+        output_file: Option<String>,
+        image: bool,
+    ) -> Self {
         ByFileArgs {
             repo_path,
             full_path_filename,
             output_file,
+            image,
         }
     }
 }
@@ -44,6 +51,7 @@ type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn by_file(args: ByFileArgs) -> GenResult<()> {
     let output_file = args.output_file.clone();
+    let image = args.image;
 
     println!("Processing file {}", args.full_path_filename);
 
@@ -54,7 +62,11 @@ pub fn by_file(args: ByFileArgs) -> GenResult<()> {
 
     results.sort_by(|a, b| b.day.cmp(&a.day));
 
-    display_csv(results, output_file)
+    if image {
+        display_image(results, output_file)
+    } else {
+        display_csv(results, output_file)
+    }
 }
 
 fn process_file(args: ByFileArgs) -> GenResult<Vec<ByFile>> {
@@ -184,6 +196,7 @@ mod tests {
             td.path().to_str().unwrap().to_string(),
             "src/by_date.rs".to_string(),
             None,
+            false,
         );
 
         let results: Vec<ByFile> = process_file(args).unwrap();
@@ -203,6 +216,7 @@ mod tests {
             td.path().to_str().unwrap().to_string(),
             "src/by_date.rs".to_string(),
             None,
+            false,
         );
 
         let s = match by_file(args) {
