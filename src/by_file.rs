@@ -229,4 +229,28 @@ mod tests {
 
         assert!(s, "See error above");
     }
+
+    #[test]
+    fn test_by_file_with_image() {
+        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+
+        let td: TempDir = crate::grit_test::init_repo();
+
+        let args = ByFileArgs::new(
+            td.path().to_str().unwrap().to_string(),
+            "src/by_date.rs".to_string(),
+            Some("target/to_file.png".to_string()),
+            true,
+        );
+
+        let s = match by_file(args) {
+            Ok(()) => true,
+            Err(e) => {
+                error!("test_by_file ended in error {:?}", e);
+                false
+            }
+        };
+
+        assert!(s, "See error above");
+    }
 }

@@ -381,7 +381,8 @@ mod tests {
 
         let output = process_date(path, None, None, false, true);
 
-        let result = match create_output_image(output.unwrap(), "test_image.png".to_string()) {
+        let result = match create_output_image(output.unwrap(), "target/test_image.png".to_string())
+        {
             Ok(()) => true,
             Err(_e) => false,
         };
