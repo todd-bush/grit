@@ -20,6 +20,10 @@ pub mod grit_utils {
     use chrono::{Date, Datelike, Local, NaiveDateTime, TimeZone};
     use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
+    use std::ffi::OsStr;
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::Path;
 
     type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -108,6 +112,34 @@ pub mod grit_utils {
         format!("{}-{:0>2}-{:0>2}", d.year(), d.month(), d.day())
     }
 
+    pub fn get_filename_extension(filename: &str) -> Option<&str> {
+        Path::new(filename).extension().and_then(OsStr::to_str)
+    }
+
+    pub fn strip_extension(filename: &str) -> Option<&str> {
+        Path::new(filename).file_stem().and_then(OsStr::to_str)
+    }
+
+    pub fn create_html(filename: &str) -> GenResult<()> {
+        let file_base = match strip_extension(filename) {
+            Some(f) => f,
+            None => panic!("cannot create html file"),
+        };
+
+        let html_file = format!("{}{}", file_base, ".html");
+        let html_output = format!(
+            "<html><head></head><body><img src=\"{}\"/></body></html>",
+            filename
+        );
+
+        let mut output = File::create(html_file).expect("HTML file creation failed");
+        output
+            .write_all(html_output.as_bytes())
+            .expect("Writing to HTML File failed");
+
+        Ok(())
+    }
+
     #[cfg(test)]
     mod tests {
 
@@ -152,6 +184,18 @@ pub mod grit_utils {
             let test_date = Local.ymd(2020, 3, 13);
 
             assert_eq!(format_date(test_date), "2020-03-13");
+        }
+
+        #[test]
+        fn test_get_filename_extension() {
+            assert_eq!(get_filename_extension("test.txt"), Some("txt"));
+            assert_eq!(get_filename_extension("test"), None);
+        }
+
+        #[test]
+        fn test_strip_extension() {
+            assert_eq!(strip_extension("test.txt"), Some("test"));
+            assert_eq!(strip_extension("src/test.txt"), Some("test"));
         }
     }
 }

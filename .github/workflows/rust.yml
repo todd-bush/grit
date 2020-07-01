@@ -15,7 +15,6 @@ jobs:
       working-directory: ${{ github.workspace }}
 
     steps:
-    - uses: 98w/action-debugger@v0.1
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
@@ -31,8 +30,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-
-      - uses: 98w/action-debugger@v0.1
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1

@@ -1,5 +1,5 @@
 use crate::utils::grit_utils;
-use chrono::{Date, Local, TimeZone};
+use chrono::{Date, Local};
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
 use indicatif::ProgressBar;

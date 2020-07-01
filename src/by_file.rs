@@ -1,4 +1,7 @@
 use crate::utils::grit_utils;
+use charts::{
+    AxisPosition, BarDatum, BarLabelPosition, Chart, ScaleBand, ScaleLinear, VerticalBarView,
+};
 use chrono::{Date, Local};
 use csv::Writer;
 use git2::Repository;
@@ -14,14 +17,24 @@ pub struct ByFileArgs {
     repo_path: String,
     full_path_filename: String,
     output_file: Option<String>,
+    image: bool,
+    html: bool,
 }
 
 impl ByFileArgs {
-    pub fn new(repo_path: String, full_path_filename: String, output_file: Option<String>) -> Self {
+    pub fn new(
+        repo_path: String,
+        full_path_filename: String,
+        output_file: Option<String>,
+        image: bool,
+        html: bool,
+    ) -> Self {
         ByFileArgs {
             repo_path,
             full_path_filename,
             output_file,
+            image,
+            html,
         }
     }
 }
@@ -39,10 +52,25 @@ impl ByFile {
     }
 }
 
+impl BarDatum for ByFile {
+    fn get_category(&self) -> String {
+        grit_utils::format_date(self.day)
+    }
+    fn get_value(&self) -> f32 {
+        self.loc as f32
+    }
+    fn get_key(&self) -> String {
+        self.name.clone()
+    }
+}
+
 type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn by_file(args: ByFileArgs) -> GenResult<()> {
     let output_file = args.output_file.clone();
+    let image = args.image;
+    let file_to_blame = args.full_path_filename.clone();
+    let html = args.html;
 
     println!("Processing file {}", args.full_path_filename);
 
@@ -53,7 +81,11 @@ pub fn by_file(args: ByFileArgs) -> GenResult<()> {
 
     results.sort_by(|a, b| b.day.cmp(&a.day));
 
-    display_csv(results, output_file)
+    if image {
+        display_image(results, output_file, file_to_blame, html)
+    } else {
+        display_csv(results, output_file)
+    }
 }
 
 fn process_file(args: ByFileArgs) -> GenResult<Vec<ByFile>> {
@@ -124,6 +156,75 @@ fn display_csv(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
     Ok(())
 }
 
+fn display_image(
+    data: Vec<ByFile>,
+    file: Option<String>,
+    file_to_blame: String,
+    html: bool,
+) -> GenResult<()> {
+    let f = match file {
+        Some(f) => f,
+        None => panic!("Filename is manditory for images"),
+    };
+
+    let (width, height) = if data.len() > 60 {
+        (1920, 960)
+    } else if data.len() > 35 {
+        (1280, 960)
+    } else {
+        (1027, 768)
+    };
+
+    let (top, right, bottom, left) = (90, 40, 50, 60);
+
+    let max_size_obj = data.iter().max_by(|a, b| a.loc.cmp(&b.loc));
+    let max_count = match max_size_obj {
+        Some(m) => m.loc as f32 + 5.0,
+        None => panic!("could not find max count in image creation"),
+    };
+
+    let mut authors: Vec<String> = data.iter().map(|d| d.name.clone()).collect();
+    authors.sort();
+    authors.dedup();
+
+    let dates: Vec<String> = data
+        .iter()
+        .map(|d| grit_utils::format_date(d.day))
+        .collect();
+
+    let x_sb = ScaleBand::new()
+        .set_domain(dates)
+        .set_range(vec![0, width - left - right]);
+
+    let y_sb = ScaleLinear::new()
+        .set_domain(vec![0.0, max_count])
+        .set_range(vec![height - top - bottom, 0]);
+
+    let view = VerticalBarView::new()
+        .set_x_scale(&x_sb)
+        .set_y_scale(&y_sb)
+        .set_keys(authors)
+        .set_label_position(BarLabelPosition::Center)
+        .load_data(&data)?;
+
+    let _chart = Chart::new()
+        .set_width(width)
+        .set_height(height)
+        .set_margins(top, right, bottom, left)
+        .add_title(file_to_blame)
+        .add_view(&view)
+        .add_axis_bottom(&x_sb)
+        .add_axis_left(&y_sb)
+        .add_legend_at(AxisPosition::Bottom)
+        .save(Path::new(&f))?;
+
+    if html {
+        grit_utils::create_html(&f).expect("Failed to create HTML file");
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -143,6 +244,8 @@ mod tests {
             td.path().to_str().unwrap().to_string(),
             "src/by_date.rs".to_string(),
             None,
+            false,
+            false,
         );
 
         let results: Vec<ByFile> = process_file(args).unwrap();
@@ -162,6 +265,33 @@ mod tests {
             td.path().to_str().unwrap().to_string(),
             "src/by_date.rs".to_string(),
             None,
+            false,
+            false,
+        );
+
+        let s = match by_file(args) {
+            Ok(()) => true,
+            Err(e) => {
+                error!("test_by_file ended in error {:?}", e);
+                false
+            }
+        };
+
+        assert!(s, "See error above");
+    }
+
+    #[test]
+    fn test_by_file_with_image() {
+        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+
+        let td: TempDir = crate::grit_test::init_repo();
+
+        let args = ByFileArgs::new(
+            td.path().to_str().unwrap().to_string(),
+            "README.md".to_string(),
+            Some(String::from("target/to_file.svg")),
+            true,
+            true,
         );
 
         let s = match by_file(args) {
