@@ -1,10 +1,12 @@
 use crate::utils::grit_utils;
+use charts::{
+    Chart, LineSeriesView, MarkerType, PointDatum, PointLabelPosition, ScaleBand, ScaleLinear,
+};
 use chrono::naive::{MAX_DATE, MIN_DATE};
 use chrono::offset::{Local, TimeZone};
 use chrono::{Date, Datelike, Duration, NaiveDateTime, Weekday};
 use csv::Writer;
 use git2::Repository;
-use plotters::prelude::*;
 use std::boxed::Box;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
@@ -12,6 +14,7 @@ use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::ops::Add;
+use std::path::Path;
 
 #[derive(Ord, Debug, PartialEq, Eq, PartialOrd, Clone)]
 struct ByDate {
@@ -22,6 +25,20 @@ struct ByDate {
 impl ByDate {
     pub fn new(date: Date<Local>, count: i32) -> Self {
         ByDate { date, count }
+    }
+}
+
+impl PointDatum<String, f32> for ByDate {
+    fn get_x(&self) -> String {
+        grit_utils::format_date(self.date)
+    }
+
+    fn get_y(&self) -> f32 {
+        self.count as f32
+    }
+
+    fn get_key(&self) -> String {
+        String::from("")
     }
 }
 
@@ -227,7 +244,7 @@ fn display_output(output: Vec<ByDate>, file: Option<String>) -> GenResult<()> {
 }
 
 fn create_output_image(output: Vec<ByDate>, file: String) -> GenResult<()> {
-    let image_size = if output.len() > 60 {
+    let (width, height) = if output.len() > 60 {
         (1920, 960)
     } else if output.len() > 35 {
         (1280, 960)
@@ -235,57 +252,43 @@ fn create_output_image(output: Vec<ByDate>, file: String) -> GenResult<()> {
         (1027, 768)
     };
 
-    let root = BitMapBackend::new(&file, image_size).into_drawing_area();
-    root.fill(&WHITE)?;
+    let (top, right, bottom, left) = (90, 40, 50, 60);
 
-    let (from_date, to_date) = (
-        output[0].date,
-        output
-            .last()
-            .expect("Cannot find last entry in output")
-            .date,
-    );
-
-    let output_count = output.len();
+    let dates = output
+        .iter()
+        .map(|d| grit_utils::format_date(d.date))
+        .collect();
 
     let max_count_obj = output.iter().max_by(|x, y| x.count.cmp(&y.count));
 
     let max_count = max_count_obj.expect("Cannot access max count object").count as f32 + 5.0;
 
-    let mut chart = ChartBuilder::on(&root)
-        .x_label_area_size(35)
-        .y_label_area_size(40)
-        .margin(5)
-        .caption("Commits by Date", ("sans-serif", 32.0).into_font())
-        .build_ranged(from_date..to_date, 0f32..max_count)?;
+    let x = ScaleBand::new()
+        .set_domain(dates)
+        .set_range(vec![0, width - left - right]);
 
-    chart
-        .configure_mesh()
-        .y_labels(output_count)
-        .y_desc("Commits")
-        .y_label_formatter(&|y| format!("{}", y))
-        .x_label_formatter(&|x| format!("{}", x.format("%Y-%m-%d")))
-        .draw()?;
+    let y = ScaleLinear::new()
+        .set_domain(vec![0_f32, max_count])
+        .set_range(vec![height - top - bottom, 0]);
 
-    chart.draw_series(PointSeries::of_element(
-        output.iter().map(|db| (db.date, db.count as f32)),
-        5,
-        ShapeStyle::from(&RED).filled(),
-        &|cord, size, style| {
-            EmptyElement::at(cord)
-                + Circle::new((0, 0), size, style)
-                + Text::new(
-                    format!("{}", cord.1),
-                    (0, -15),
-                    ("sans-serif", 12).into_font(),
-                )
-        },
-    ))?;
+    let line_view = LineSeriesView::new()
+        .set_x_scale(&x)
+        .set_y_scale(&y)
+        .set_marker_type(MarkerType::Circle)
+        .set_label_position(PointLabelPosition::N)
+        .load_data(&output)?;
 
-    chart.draw_series(LineSeries::new(
-        output.iter().map(|db| (db.date, db.count as f32)),
-        &BLUE,
-    ))?;
+    let _chart = Chart::new()
+        .set_width(width)
+        .set_height(height)
+        .set_margins(top, right, bottom, left)
+        .add_title(String::from("By Date"))
+        .add_view(&line_view)
+        .add_axis_bottom(&x)
+        .add_axis_left(&y)
+        .add_left_axis_label("Commits")
+        .add_bottom_axis_label("Date")
+        .save(Path::new(&file))?;
 
     Ok(())
 }
@@ -381,7 +384,7 @@ mod tests {
 
         let output = process_date(path, None, None, false, true);
 
-        let result = match create_output_image(output.unwrap(), "target/test_image.png".to_string())
+        let result = match create_output_image(output.unwrap(), "target/test_image.svg".to_string())
         {
             Ok(()) => true,
             Err(_e) => false,
