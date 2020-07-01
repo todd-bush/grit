@@ -43,6 +43,7 @@ struct Args {
     flag_ignore_weekends: bool,
     flag_ignore_gap_fill: bool,
     flag_in_file: Option<String>,
+    flag_html: bool,
     cmd_fame: bool,
     cmd_bydate: bool,
     cmd_byfile: bool,
@@ -151,7 +152,7 @@ fn run(args: &Args) -> Result<()> {
             in_file,
             args.flag_file.clone(),
             args.flag_image,
-            false, //TODO replace
+            args.flag_html,
         );
         by_file::by_file(by_file_args)?;
     };
