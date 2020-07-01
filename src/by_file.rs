@@ -1,5 +1,7 @@
 use crate::utils::grit_utils;
-use charts::{BarDatum, Chart, ScaleBand, ScaleLinear, VerticalBarView};
+use charts::{
+    AxisPosition, BarDatum, BarLabelPosition, Chart, ScaleBand, ScaleLinear, VerticalBarView,
+};
 use chrono::{Date, Local};
 use csv::Writer;
 use git2::Repository;
@@ -64,6 +66,7 @@ type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 pub fn by_file(args: ByFileArgs) -> GenResult<()> {
     let output_file = args.output_file.clone();
     let image = args.image;
+    let file_to_blame = args.full_path_filename.clone();
 
     println!("Processing file {}", args.full_path_filename);
 
@@ -75,7 +78,7 @@ pub fn by_file(args: ByFileArgs) -> GenResult<()> {
     results.sort_by(|a, b| b.day.cmp(&a.day));
 
     if image {
-        display_image(results, output_file)
+        display_image(results, output_file, file_to_blame)
     } else {
         display_csv(results, output_file)
     }
@@ -149,7 +152,7 @@ fn display_csv(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
     Ok(())
 }
 
-fn display_image(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
+fn display_image(data: Vec<ByFile>, file: Option<String>, file_to_blame: String) -> GenResult<()> {
     let f = match file {
         Some(f) => f,
         None => panic!("Filename is manditory for images"),
@@ -165,7 +168,9 @@ fn display_image(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
         None => panic!("could not find max count in image creation"),
     };
 
-    let authors: Vec<String> = data.iter().map(|d| d.name.clone()).collect();
+    let mut authors: Vec<String> = data.iter().map(|d| d.name.clone()).collect();
+    authors.sort();
+    authors.dedup();
 
     let dates: Vec<String> = data
         .iter()
@@ -184,16 +189,18 @@ fn display_image(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
         .set_x_scale(&x_sb)
         .set_y_scale(&y_sb)
         .set_keys(authors)
+        .set_label_position(BarLabelPosition::Center)
         .load_data(&data)?;
 
     let _chart = Chart::new()
         .set_width(width)
         .set_height(height)
         .set_margins(top, right, bottom, left)
-        .add_title(String::from("File"))
+        .add_title(file_to_blame)
         .add_view(&view)
         .add_axis_bottom(&x_sb)
         .add_axis_left(&y_sb)
+        .add_legend_at(AxisPosition::Bottom)
         .save(Path::new(&f))?;
 
     Ok(())
