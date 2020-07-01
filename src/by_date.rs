@@ -49,6 +49,7 @@ pub struct ByDateArgs {
     image: bool,
     ignore_weekends: bool,
     ignore_gap_fill: bool,
+    html: bool,
 }
 
 impl ByDateArgs {
@@ -59,6 +60,7 @@ impl ByDateArgs {
         image: bool,
         ignore_weekends: bool,
         ignore_gap_fill: bool,
+        html: bool,
     ) -> Self {
         ByDateArgs {
             start_date,
@@ -67,6 +69,7 @@ impl ByDateArgs {
             image,
             ignore_weekends,
             ignore_gap_fill,
+            html,
         }
     }
 }
@@ -85,7 +88,8 @@ pub fn by_date(repo_path: &str, args: ByDateArgs) -> GenResult<()> {
     if args.image {
         match create_output_image(
             output,
-            args.file.unwrap_or_else(|| "commits.png".to_string()),
+            args.file.unwrap_or_else(|| "commits.svg".to_string()),
+            args.html,
         ) {
             Ok(_) => {}
             Err(e) => error!("Error thrown while creating image {:?}", e),
@@ -243,7 +247,7 @@ fn display_output(output: Vec<ByDate>, file: Option<String>) -> GenResult<()> {
     Ok(())
 }
 
-fn create_output_image(output: Vec<ByDate>, file: String) -> GenResult<()> {
+fn create_output_image(output: Vec<ByDate>, file: String, html: bool) -> GenResult<()> {
     let (width, height) = if output.len() > 60 {
         (1920, 960)
     } else if output.len() > 35 {
@@ -275,7 +279,8 @@ fn create_output_image(output: Vec<ByDate>, file: String) -> GenResult<()> {
         .set_x_scale(&x)
         .set_y_scale(&y)
         .set_marker_type(MarkerType::Circle)
-        .set_label_position(PointLabelPosition::N)
+        .set_label_position(PointLabelPosition::NW)
+        .set_label_visibility(false) // remove this line to enable point labels, once configurable
         .load_data(&output)?;
 
     let _chart = Chart::new()
@@ -287,8 +292,12 @@ fn create_output_image(output: Vec<ByDate>, file: String) -> GenResult<()> {
         .add_axis_bottom(&x)
         .add_axis_left(&y)
         .add_left_axis_label("Commits")
-        .add_bottom_axis_label("Date")
+        .set_bottom_axis_tick_label_rotation(-45)
         .save(Path::new(&file))?;
+
+    if html {
+        grit_utils::create_html(&file).expect("Failed to make HTML file.");
+    }
 
     Ok(())
 }
@@ -312,7 +321,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let args = ByDateArgs::new(None, None, None, false, false, false);
+        let args = ByDateArgs::new(None, None, None, false, false, false, false);
 
         let result = match by_date(path, args) {
             Ok(()) => true,
@@ -333,7 +342,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let args = ByDateArgs::new(None, None, None, false, true, true);
+        let args = ByDateArgs::new(None, None, None, false, true, true, false);
 
         let result = match by_date(path, args) {
             Ok(()) => true,
@@ -356,7 +365,7 @@ mod tests {
         let path = td.path().to_str().unwrap();
 
         let ed = parse_date("2020-03-26");
-        let args = ByDateArgs::new(None, Some(ed), None, false, false, false);
+        let args = ByDateArgs::new(None, Some(ed), None, false, false, false, false);
 
         let start = Instant::now();
 
@@ -384,8 +393,11 @@ mod tests {
 
         let output = process_date(path, None, None, false, true);
 
-        let result = match create_output_image(output.unwrap(), "target/test_image.svg".to_string())
-        {
+        let result = match create_output_image(
+            output.unwrap(),
+            "target/test_image.svg".to_string(),
+            false,
+        ) {
             Ok(()) => true,
             Err(_e) => false,
         };

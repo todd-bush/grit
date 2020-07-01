@@ -56,7 +56,7 @@ Grit.
 
 Usage:
     grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
-    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
+    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--html] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
     grit byfile [--in-file=<string>] [--file=<string>] [--image] [--html] [--verbose] [--debug]
 
 Command:
@@ -71,7 +71,7 @@ Options:
     --end-date=<string>         end date in YYYY-MM-DD format.
     --include=<string>          comma delimited, glob file path to include path1/*,path2/*
     --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
-    --file=<string>             output file for the by date file.  Sends to stdout by default
+    --file=<string>             output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg
     --in-file=<string>          input file for by_file
     --image                     creates an image for the by_date & by_file graph.  file is required
     --html                      creates a HTML file to help visualize the SVG output
@@ -140,6 +140,7 @@ fn run(args: &Args) -> Result<()> {
             args.flag_image,
             args.flag_ignore_weekends,
             args.flag_ignore_gap_fill,
+            args.flag_html,
         );
         by_date::by_date(path, by_date_args)?;
     } else if args.cmd_byfile {
