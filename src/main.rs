@@ -23,6 +23,7 @@ use crate::by_date::ByDateArgs;
 use crate::by_file::ByFileArgs;
 use crate::chrono::TimeZone;
 use crate::fame::FameArgs;
+
 use chrono::{Date, Local, NaiveDate};
 use docopt::Docopt;
 use log::Level;
@@ -127,9 +128,13 @@ fn run(args: &Args) -> Result<()> {
         fame::process_fame(fame_args)?;
     } else if args.cmd_bydate {
         if args.flag_image {
-            match args.flag_file {
-                None => panic!("File is requird when selecting image"),
-                Some(_) => (),
+            match args.flag_file.clone() {
+                None => panic!("Argument 'flag_file' is required when selecting image."),
+                Some(f) => {
+                    if !grit_utils::check_file_type(&f, "svg") {
+                        panic!("Argument 'flag_file' must end with .svg");
+                    }
+                }
             }
         }
 
@@ -148,6 +153,11 @@ fn run(args: &Args) -> Result<()> {
             Some(f) => f,
             None => panic!("Argument 'flag_in_file' is required for byfile"),
         };
+
+        if !grit_utils::check_file_type(&in_file, "svg") {
+            panic!("Argument 'flag_in_file' must end with .svg");
+        }
+
         let by_file_args = ByFileArgs::new(
             path.to_string(),
             in_file,
