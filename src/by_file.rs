@@ -1,8 +1,8 @@
 use crate::utils::grit_utils;
+use charts::{BarDatum, Chart, ScaleBand, ScaleLinear, VerticalBarView};
 use chrono::{Date, Local};
 use csv::Writer;
 use git2::Repository;
-use plotters::prelude::*;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::fs::File;
@@ -44,6 +44,18 @@ struct ByFile {
 impl ByFile {
     fn new(name: String, day: Date<Local>) -> Self {
         ByFile { name, day, loc: 0 }
+    }
+}
+
+impl BarDatum for ByFile {
+    fn get_category(&self) -> String {
+        grit_utils::format_date(self.day)
+    }
+    fn get_value(&self) -> f32 {
+        self.loc as f32
+    }
+    fn get_key(&self) -> String {
+        self.name.clone()
     }
 }
 
@@ -143,15 +155,9 @@ fn display_image(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
         None => panic!("Filename is manditory for images"),
     };
 
-    let root = BitMapBackend::new(&f, (1280, 960)).into_drawing_area();
-    root.fill(&WHITE)?;
-
-    let (from_date, to_date) = (
-        data[0].day,
-        data.last().expect("Cannot find last entry in output").day,
-    );
-
-    let output_count = data.len();
+    let width = 1280;
+    let height = 960;
+    let (top, right, bottom, left) = (90, 40, 50, 60);
 
     let max_size_obj = data.iter().max_by(|a, b| a.loc.cmp(&b.loc));
     let max_count = match max_size_obj {
@@ -159,20 +165,36 @@ fn display_image(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
         None => panic!("could not find max count in image creation"),
     };
 
-    let mut chart = ChartBuilder::on(&root)
-        .x_label_area_size(35)
-        .y_label_area_size(40)
-        .margin(5)
-        .caption("Commits by Date", ("sans-serif", 32.0).into_font())
-        .build_ranged(from_date..to_date, 0f32..max_count)?;
+    let authors: Vec<String> = data.iter().map(|d| d.name.clone()).collect();
 
-    chart
-        .configure_mesh()
-        .y_labels(output_count)
-        .y_desc("Commits")
-        .y_label_formatter(&|y| format!("{}", y))
-        .x_label_formatter(&|x| format!("{}", x.format("%Y-%m-%d")))
-        .draw()?;
+    let dates: Vec<String> = data
+        .iter()
+        .map(|d| grit_utils::format_date(d.day))
+        .collect();
+
+    let x_sb = ScaleBand::new()
+        .set_domain(dates)
+        .set_range(vec![0, width - left - right]);
+
+    let y_sb = ScaleLinear::new()
+        .set_domain(vec![0.0, max_count])
+        .set_range(vec![height - top - bottom, 0]);
+
+    let view = VerticalBarView::new()
+        .set_x_scale(&x_sb)
+        .set_y_scale(&y_sb)
+        .set_keys(authors)
+        .load_data(&data)?;
+
+    let _chart = Chart::new()
+        .set_width(width)
+        .set_height(height)
+        .set_margins(top, right, bottom, left)
+        .add_title(String::from("File"))
+        .add_view(&view)
+        .add_axis_bottom(&x_sb)
+        .add_axis_left(&y_sb)
+        .save(Path::new(&f))?;
 
     Ok(())
 }
@@ -230,27 +252,27 @@ mod tests {
         assert!(s, "See error above");
     }
 
-    // #[test]
-    // fn test_by_file_with_image() {
-    //     simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
-    //
-    //     let td: TempDir = crate::grit_test::init_repo();
-    //
-    //     let args = ByFileArgs::new(
-    //         td.path().to_str().unwrap().to_string(),
-    //         "src/by_date.rs".to_string(),
-    //         Some("target/to_file.png".to_string()),
-    //         true,
-    //     );
-    //
-    //     let s = match by_file(args) {
-    //         Ok(()) => true,
-    //         Err(e) => {
-    //             error!("test_by_file ended in error {:?}", e);
-    //             false
-    //         }
-    //     };
-    //
-    //     assert!(s, "See error above");
-    // }
+    #[test]
+    fn test_by_file_with_image() {
+        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+
+        let td: TempDir = crate::grit_test::init_repo();
+
+        let args = ByFileArgs::new(
+            td.path().to_str().unwrap().to_string(),
+            "README.md".to_string(),
+            Some(String::from("target/to_file.svg")),
+            true,
+        );
+
+        let s = match by_file(args) {
+            Ok(()) => true,
+            Err(e) => {
+                error!("test_by_file ended in error {:?}", e);
+                false
+            }
+        };
+
+        assert!(s, "See error above");
+    }
 }

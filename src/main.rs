@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate log;
+extern crate charts;
 extern crate chrono;
 extern crate csv;
 extern crate simple_logger;
