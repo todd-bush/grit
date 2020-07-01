@@ -18,6 +18,7 @@ pub struct ByFileArgs {
     full_path_filename: String,
     output_file: Option<String>,
     image: bool,
+    html: bool,
 }
 
 impl ByFileArgs {
@@ -26,12 +27,14 @@ impl ByFileArgs {
         full_path_filename: String,
         output_file: Option<String>,
         image: bool,
+        html: bool,
     ) -> Self {
         ByFileArgs {
             repo_path,
             full_path_filename,
             output_file,
             image,
+            html,
         }
     }
 }
@@ -67,6 +70,7 @@ pub fn by_file(args: ByFileArgs) -> GenResult<()> {
     let output_file = args.output_file.clone();
     let image = args.image;
     let file_to_blame = args.full_path_filename.clone();
+    let html = args.html;
 
     println!("Processing file {}", args.full_path_filename);
 
@@ -78,7 +82,7 @@ pub fn by_file(args: ByFileArgs) -> GenResult<()> {
     results.sort_by(|a, b| b.day.cmp(&a.day));
 
     if image {
-        display_image(results, output_file, file_to_blame)
+        display_image(results, output_file, file_to_blame, html)
     } else {
         display_csv(results, output_file)
     }
@@ -152,14 +156,25 @@ fn display_csv(data: Vec<ByFile>, file: Option<String>) -> GenResult<()> {
     Ok(())
 }
 
-fn display_image(data: Vec<ByFile>, file: Option<String>, file_to_blame: String) -> GenResult<()> {
+fn display_image(
+    data: Vec<ByFile>,
+    file: Option<String>,
+    file_to_blame: String,
+    html: bool,
+) -> GenResult<()> {
     let f = match file {
         Some(f) => f,
         None => panic!("Filename is manditory for images"),
     };
 
-    let width = 1280;
-    let height = 960;
+    let (width, height) = if data.len() > 60 {
+        (1920, 960)
+    } else if data.len() > 35 {
+        (1280, 960)
+    } else {
+        (1027, 768)
+    };
+
     let (top, right, bottom, left) = (90, 40, 50, 60);
 
     let max_size_obj = data.iter().max_by(|a, b| a.loc.cmp(&b.loc));
@@ -203,6 +218,10 @@ fn display_image(data: Vec<ByFile>, file: Option<String>, file_to_blame: String)
         .add_legend_at(AxisPosition::Bottom)
         .save(Path::new(&f))?;
 
+    if html {
+        grit_utils::create_html(&f).expect("Failed to create HTML file");
+    }
+
     Ok(())
 }
 
@@ -226,6 +245,7 @@ mod tests {
             "src/by_date.rs".to_string(),
             None,
             false,
+            false,
         );
 
         let results: Vec<ByFile> = process_file(args).unwrap();
@@ -245,6 +265,7 @@ mod tests {
             td.path().to_str().unwrap().to_string(),
             "src/by_date.rs".to_string(),
             None,
+            false,
             false,
         );
 
@@ -269,6 +290,7 @@ mod tests {
             td.path().to_str().unwrap().to_string(),
             "README.md".to_string(),
             Some(String::from("target/to_file.svg")),
+            true,
             true,
         );
 

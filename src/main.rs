@@ -56,7 +56,7 @@ Grit.
 Usage:
     grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
-    grit byfile [--in-file=<string>] [--file=<string>] [--image] [--verbose] [--debug]
+    grit byfile [--in-file=<string>] [--file=<string>] [--image] [--html] [--verbose] [--debug]
 
 Command:
     fame: produces counts by commit author
@@ -73,6 +73,7 @@ Options:
     --file=<string>             output file for the by date file.  Sends to stdout by default
     --in-file=<string>          input file for by_file
     --image                     creates an image for the by_date & by_file graph.  file is required
+    --html                      creates a HTML file to help visualize the SVG output
     --ignore-weekends           ignore weekends when calculating # of commits
     --ignore-gap-fill           ignore filling empty dates with 0 commits
     -v, --verbose
@@ -150,6 +151,7 @@ fn run(args: &Args) -> Result<()> {
             in_file,
             args.flag_file.clone(),
             args.flag_image,
+            false, //TODO replace
         );
         by_file::by_file(by_file_args)?;
     };
