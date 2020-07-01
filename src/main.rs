@@ -23,6 +23,7 @@ use crate::by_date::ByDateArgs;
 use crate::by_file::ByFileArgs;
 use crate::chrono::TimeZone;
 use crate::fame::FameArgs;
+
 use chrono::{Date, Local, NaiveDate};
 use docopt::Docopt;
 use log::Level;
@@ -56,7 +57,7 @@ Grit.
 
 Usage:
     grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
-    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
+    grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--html] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
     grit byfile [--in-file=<string>] [--file=<string>] [--image] [--html] [--verbose] [--debug]
 
 Command:
@@ -71,7 +72,7 @@ Options:
     --end-date=<string>         end date in YYYY-MM-DD format.
     --include=<string>          comma delimited, glob file path to include path1/*,path2/*
     --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
-    --file=<string>             output file for the by date file.  Sends to stdout by default
+    --file=<string>             output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg
     --in-file=<string>          input file for by_file
     --image                     creates an image for the by_date & by_file graph.  file is required
     --html                      creates a HTML file to help visualize the SVG output
@@ -127,9 +128,13 @@ fn run(args: &Args) -> Result<()> {
         fame::process_fame(fame_args)?;
     } else if args.cmd_bydate {
         if args.flag_image {
-            match args.flag_file {
-                None => panic!("File is requird when selecting image"),
-                Some(_) => (),
+            match args.flag_file.clone() {
+                None => panic!("Argument 'flag_file' is required when selecting image."),
+                Some(f) => {
+                    if !grit_utils::check_file_type(&f, "svg") {
+                        panic!("Argument 'flag_file' must end with .svg");
+                    }
+                }
             }
         }
 
@@ -140,6 +145,7 @@ fn run(args: &Args) -> Result<()> {
             args.flag_image,
             args.flag_ignore_weekends,
             args.flag_ignore_gap_fill,
+            args.flag_html,
         );
         by_date::by_date(path, by_date_args)?;
     } else if args.cmd_byfile {
@@ -147,6 +153,11 @@ fn run(args: &Args) -> Result<()> {
             Some(f) => f,
             None => panic!("Argument 'flag_in_file' is required for byfile"),
         };
+
+        if !grit_utils::check_file_type(&in_file, "svg") {
+            panic!("Argument 'flag_in_file' must end with .svg");
+        }
+
         let by_file_args = ByFileArgs::new(
             path.to_string(),
             in_file,

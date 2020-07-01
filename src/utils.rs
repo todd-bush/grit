@@ -140,6 +140,15 @@ pub mod grit_utils {
         Ok(())
     }
 
+    pub fn check_file_type(filename: &str, ext: &str) -> bool {
+        let file_ext = match get_filename_extension(filename) {
+            Some(f) => f,
+            None => "",
+        };
+
+        ext.eq_ignore_ascii_case(file_ext)
+    }
+
     #[cfg(test)]
     mod tests {
 
@@ -196,6 +205,13 @@ pub mod grit_utils {
         fn test_strip_extension() {
             assert_eq!(strip_extension("test.txt"), Some("test"));
             assert_eq!(strip_extension("src/test.txt"), Some("test"));
+        }
+
+        #[test]
+        fn test_check_filetype() {
+            assert!(check_file_type("test.txt", "txt"));
+            assert!(check_file_type("test.rs", "rs"));
+            assert!(!check_file_type("test.rs", "txt"));
         }
     }
 }

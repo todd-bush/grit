@@ -215,7 +215,8 @@ fn display_image(
         .add_view(&view)
         .add_axis_bottom(&x_sb)
         .add_axis_left(&y_sb)
-        .add_legend_at(AxisPosition::Bottom)
+        .add_legend_at(AxisPosition::Top)
+        .set_bottom_axis_tick_label_rotation(-45)
         .save(Path::new(&f))?;
 
     if html {
