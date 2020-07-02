@@ -129,10 +129,14 @@ fn run(args: &Args) -> Result<()> {
     } else if args.cmd_bydate {
         if args.flag_image {
             match args.flag_file.clone() {
-                None => panic!("Argument 'flag_file' is required when selecting image."),
+                None => {
+                    error!("Argument 'flag_file' is required when selecting image.");
+                    std::process::exit(1);
+                }
                 Some(f) => {
                     if !grit_utils::check_file_type(&f, "svg") {
-                        panic!("Argument 'flag_file' must end with .svg");
+                        error!("Argument 'flag_file' must end with .svg");
+                        std::process::exit(1);
                     }
                 }
             }
@@ -151,11 +155,15 @@ fn run(args: &Args) -> Result<()> {
     } else if args.cmd_byfile {
         let in_file = match args.flag_in_file.clone() {
             Some(f) => f,
-            None => panic!("Argument 'flag_in_file' is required for byfile"),
+            None => {
+                error!("Argument 'flag_in_file' is required for byfile");
+                std::process::exit(1);
+            }
         };
 
         if !grit_utils::check_file_type(&in_file, "svg") {
-            panic!("Argument 'flag_in_file' must end with .svg");
+            error!("Argument 'flag_in_file' must end with .svg");
+            std::process::exit(1);
         }
 
         let by_file_args = ByFileArgs::new(
