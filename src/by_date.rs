@@ -136,7 +136,7 @@ fn process_date(
         .expect(format_tostr!("Could not open repo for path {}", repo_path));
 
     let mut revwalk = repo.revwalk()?;
-    revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME);
+    revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME).expect("Could not sort revwalk");
     revwalk.push_head()?;
 
     debug!("filtering revwalk");

@@ -328,7 +328,7 @@ fn find_commit_range(
     if let Some(d) = start_date {
         let start_date_sec = d.naive_local().and_hms(0, 0, 0).timestamp();
         let mut revwalk = repo.revwalk()?;
-        revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME);
+        revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME).expect("Could not sort revwalk");
         revwalk.push_head()?;
 
         for id in revwalk {
@@ -348,7 +348,7 @@ fn find_commit_range(
         let end_date_sec = d.naive_local().and_hms(23, 59, 59).timestamp();
 
         let mut revwalk = repo.revwalk()?;
-        revwalk.set_sorting(git2::Sort::REVERSE | git2::Sort::TIME);
+        revwalk.set_sorting(git2::Sort::REVERSE | git2::Sort::TIME).expect("Could not sort revwalk");
         revwalk.push_head()?;
 
         for id in revwalk {
