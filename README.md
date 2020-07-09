@@ -37,9 +37,9 @@ Options:
 
 # Output
 
-```grit bydate``` will create a csv of date and commit count to stdout or file.  Option to produce image.
+```grit bydate``` will create a csv of date and commit count to stdout or file.  Option to produce a SVG image.
 
-```grit byfile``` will create a csv of author, date, and commit counts to stdout or file.
+```grit byfile``` will create a csv of author, date, and commit counts to stdout or file.  Option to produce a SVG image.
 
 ```grit fame``` will create a table of metrics per author.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.
 
