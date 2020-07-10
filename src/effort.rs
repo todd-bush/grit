@@ -1,8 +1,12 @@
 use crate::utils::grit_utils;
 use chrono::offset::Local;
 use chrono::Date;
+use csv::Writer;
 use git2::{BlameOptions, Oid, Repository};
+use indicatif::ProgressBar;
+use prettytable::{cell, format, row, Table};
 use std::collections::HashSet;
+use std::io;
 use std::path::Path;
 use std::time::Instant;
 
@@ -46,7 +50,14 @@ impl EffortOutput {
 type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 pub fn effort(repo_path: &str, args: EffortArgs) -> GenResult<()> {
-    let _results = process_effort(repo_path, args.start_date, args.end_date);
+    let results = process_effort(repo_path, args.start_date, args.end_date)?;
+
+    if args.table {
+        display_table(results).expect("Failed to create Effort table");
+    } else {
+        display_csv(results).expect("Failted to create Effort CSV");
+    }
+    
 
     Ok(())
 }
@@ -61,12 +72,24 @@ fn process_effort(
 
     let file_names: Vec<String> = grit_utils::generate_file_list(repo_path, None, None)?;
 
+    let pgb = ProgressBar::new(file_names.len() as u64);
+
     let mut result: Vec<EffortOutput> = vec![];
 
     for file_name in file_names {
-        let er = process_effort_file( repo_path, &file_name, earliest_commit.clone(),latest_commit.clone())?;
+        let er = process_effort_file(
+            repo_path,
+            &file_name,
+            earliest_commit.clone(),
+            latest_commit.clone(),
+        )?;
         result.push(er);
+        pgb.inc(1);
     }
+
+    pgb.finish();
+
+    result.sort_by(|a,b| b.commits.cmp(&a.commits));
 
     Ok(result)
 }
@@ -119,6 +142,37 @@ fn process_effort_file(
     Ok(result)
 }
 
+fn display_csv(data: Vec<EffortOutput>) -> GenResult<()> {
+    let mut wtr = Writer::from_writer(io::stdout());
+
+    wtr.write_record(&["file", "commits", "active days"])?;
+
+    data.iter().for_each(|r| {
+        wtr.serialize((r.file.clone(), r.commits, r.active_days))
+            .expect("Cannot serialize table row");
+    });
+
+    wtr.flush()?;
+
+    Ok(())
+}
+
+fn display_table(data: Vec<EffortOutput>) -> GenResult<()> {
+
+    let mut table = Table::new();
+
+    table.set_titles(row!["File", "Commits", "Active Days"]);
+
+    data.iter().for_each(|r| {
+        table.add_row(row![r.file, r.commits, r.active_days]);
+    });
+
+    table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+    table.printstd();
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -132,17 +186,15 @@ mod test {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let result = process_effort_file(path, "README.md", None,None).unwrap();
+        let result = process_effort_file(path, "README.md", None, None).unwrap();
 
         info!("results: {:?}", result);
-        assert!(result.commits>20);
-        assert!(result.active_days>14);
-
+        assert!(result.commits > 20);
+        assert!(result.active_days > 14);
     }
 
     #[test]
     fn test_process_effort() {
-
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
         let td: TempDir = crate::grit_test::init_repo();
@@ -151,6 +203,16 @@ mod test {
         let result = process_effort(path, None, None);
 
         info!("results: {:?}", result);
+    }
 
+    #[test]
+    fn test_effort() {
+        simple_logger::init_with_level(Level::Info).unwrap_or(());
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+        let ea = EffortArgs::new(None, None, true);
+
+        let _result = effort(path, ea);
     }
 }

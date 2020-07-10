@@ -24,6 +24,7 @@ use crate::by_date::ByDateArgs;
 use crate::by_file::ByFileArgs;
 use crate::chrono::TimeZone;
 use crate::fame::FameArgs;
+use crate::effort::EffortArgs;
 
 use chrono::{Date, Local, NaiveDate};
 use docopt::Docopt;
@@ -46,9 +47,11 @@ struct Args {
     flag_ignore_gap_fill: bool,
     flag_in_file: Option<String>,
     flag_html: bool,
+    flag_table: bool,
     cmd_fame: bool,
     cmd_bydate: bool,
     cmd_byfile: bool,
+    cmd_effort: bool,
 }
 
 pub const DEFAULT_THREADS: usize = 10;
@@ -60,10 +63,7 @@ Usage:
     grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--html] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
     grit byfile [--in-file=<string>] [--file=<string>] [--image] [--html] [--verbose] [--debug]
-
-Command:
-    fame: produces counts by commit author
-    bydate: produces commit counts between two specific dates.
+    grit effort [--start-date=<string>] [--end-date=<string>] [--table] [--verbose] [--debug]
 
 Options:
     --debug                     enables debug
@@ -77,6 +77,7 @@ Options:
     --in-file=<string>          input file for by_file
     --image                     creates an image for the by_date & by_file graph.  file is required
     --html                      creates a HTML file to help visualize the SVG output
+    --table                     display as a table to stdout
     --ignore-weekends           ignore weekends when calculating # of commits
     --ignore-gap-fill           ignore filling empty dates with 0 commits
     -v, --verbose
@@ -175,6 +176,9 @@ fn run(args: &Args) -> Result<()> {
             args.flag_html,
         );
         by_file::by_file(by_file_args)?;
+    } else if args.cmd_effort {
+        let ea = EffortArgs::new(start_date, end_date, args.flag_table);
+        effort::effort(path, ea)?;
     };
 
     Ok(())
