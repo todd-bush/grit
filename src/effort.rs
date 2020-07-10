@@ -136,7 +136,7 @@ mod test {
 
         info!("results: {:?}", result);
         assert!(result.commits>20);
-        assert!(result.active_days>15);
+        assert!(result.active_days>14);
 
     }
 
