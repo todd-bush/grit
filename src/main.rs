@@ -11,6 +11,7 @@ mod utils;
 
 mod by_date;
 mod by_file;
+mod effort;
 mod fame;
 
 #[cfg(test)]
