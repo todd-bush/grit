@@ -2,15 +2,20 @@ use crate::utils::grit_utils;
 use chrono::offset::Local;
 use chrono::Date;
 use csv::Writer;
+use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
 use std::collections::HashSet;
 use std::io;
 use std::path::Path;
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
+use tokio::runtime;
+use tokio::task::JoinHandle;
 
 pub struct EffortArgs {
+    path: String,
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
     table: bool,
@@ -18,11 +23,13 @@ pub struct EffortArgs {
 
 impl EffortArgs {
     pub fn new(
+        path: String,
         start_date: Option<Date<Local>>,
         end_date: Option<Date<Local>>,
         table: bool,
     ) -> Self {
         EffortArgs {
+            path,
             start_date,
             end_date,
             table,
@@ -30,7 +37,7 @@ impl EffortArgs {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct EffortOutput {
     file: String,
     commits: usize,
@@ -49,53 +56,101 @@ impl EffortOutput {
 
 type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-pub fn effort(repo_path: &str, args: EffortArgs) -> GenResult<()> {
-    let results = process_effort(repo_path, args.start_date, args.end_date)?;
+pub fn effort(args: EffortArgs) -> GenResult<()> {
+    let results = process_effort(args.path, args.start_date, args.end_date)?;
 
     if args.table {
         display_table(results).expect("Failed to create Effort table");
     } else {
         display_csv(results).expect("Failted to create Effort CSV");
     }
-    
 
     Ok(())
 }
 
 fn process_effort(
-    repo_path: &str,
+    repo_path: String,
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
 ) -> GenResult<Vec<EffortOutput>> {
+    let rpc = repo_path.clone();
+
     let (earliest_commit, latest_commit) =
         grit_utils::find_commit_range(repo_path.to_string(), start_date, end_date)?;
 
-    let file_names: Vec<String> = grit_utils::generate_file_list(repo_path, None, None)?;
+    let file_names: Vec<String> = grit_utils::generate_file_list(&repo_path, None, None)?;
 
     let pgb = ProgressBar::new(file_names.len() as u64);
 
-    let mut result: Vec<EffortOutput> = vec![];
+    let result_holder: Vec<EffortOutput> = vec![];
+
+    let arc_results = Arc::new(RwLock::new(result_holder));
+    let arc_pgb = Arc::new(RwLock::new(pgb));
+    let rpa = Arc::new(rpc);
+
+    let mut rt = runtime::Builder::new()
+        .threaded_scheduler()
+        .thread_name("grit-effort-thread-runner")
+        .build()
+        .expect("Failed to create threadpool.");
+
+    let mut tasks: Vec<JoinHandle<Result<EffortOutput, ()>>> = vec![];
 
     for file_name in file_names {
-        let er = process_effort_file(
-            repo_path,
-            &file_name,
-            earliest_commit.clone(),
-            latest_commit.clone(),
-        )?;
-        result.push(er);
-        pgb.inc(1);
+        let rp = rpa.clone();
+        let fne = file_name.clone();
+        let arc_results_c = arc_results.clone();
+        let arc_pgb_c = arc_pgb.clone();
+
+        let ec = earliest_commit.clone();
+        let lc = latest_commit.clone();
+
+        tasks.push(rt.spawn(async move {
+            process_effort_file(&rp.clone(), &fne, ec, lc)
+                .await
+                .map(|e| {
+                    arc_results_c
+                        .write()
+                        .expect("Cannot write to shared vector")
+                        .push(e.clone());
+
+                    arc_pgb_c
+                        .write()
+                        .expect("Cannot write to shared progress bar")
+                        .inc(1);
+
+                    e.clone()
+                })
+                .map_err(|err| {
+                    error!("Error processing effort: {}", err);
+                })
+        }));
     }
 
-    pgb.finish();
+    rt.block_on(join_all(tasks));
 
-    result.sort_by(|a,b| b.commits.cmp(&a.commits));
+    arc_pgb
+        .write()
+        .expect("Could not open progress bar to write")
+        .finish();
 
-    Ok(result)
+    let mut results: Vec<EffortOutput> = vec![];
+
+    arc_results
+        .read()
+        .expect("Could not open shared vector to read")
+        .iter()
+        .for_each(|r| {
+            results.push(r.clone());
+        });
+
+    results.sort_by(|a, b| b.commits.cmp(&a.commits));
+
+    Ok(results)
 }
 
-fn process_effort_file(
-    repo_path: &str,
+async fn process_effort_file<'a>(
+    r_path: &'a str,
     file_name: &str,
     earliest_commit: Option<Vec<u8>>,
     latest_commit: Option<Vec<u8>>,
@@ -104,7 +159,7 @@ fn process_effort_file(
 
     let path = Path::new(file_name);
 
-    let repo = Repository::open(repo_path)?;
+    let repo = Repository::open(r_path)?;
     let mut blame_ops = BlameOptions::new();
     let mut effort_commits: HashSet<String> = HashSet::new();
     let mut effort_dates: HashSet<Date<Local>> = HashSet::new();
@@ -158,7 +213,6 @@ fn display_csv(data: Vec<EffortOutput>) -> GenResult<()> {
 }
 
 fn display_table(data: Vec<EffortOutput>) -> GenResult<()> {
-
     let mut table = Table::new();
 
     table.set_titles(row!["File", "Commits", "Active Days"]);
@@ -180,27 +234,13 @@ mod test {
     use tempfile::TempDir;
 
     #[test]
-    fn test_process_effort_file() {
-        simple_logger::init_with_level(Level::Info).unwrap_or(());
-
-        let td: TempDir = crate::grit_test::init_repo();
-        let path = td.path().to_str().unwrap();
-
-        let result = process_effort_file(path, "README.md", None, None).unwrap();
-
-        info!("results: {:?}", result);
-        assert!(result.commits > 20);
-        assert!(result.active_days > 14);
-    }
-
-    #[test]
     fn test_process_effort() {
         simple_logger::init_with_level(Level::Info).unwrap_or(());
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let result = process_effort(path, None, None);
+        let result = process_effort(path.to_string(), None, None);
 
         info!("results: {:?}", result);
     }
@@ -211,8 +251,8 @@ mod test {
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
-        let ea = EffortArgs::new(None, None, true);
+        let ea = EffortArgs::new(path.to_string(), None, None, true);
 
-        let _result = effort(path, ea);
+        let _result = effort(ea);
     }
 }

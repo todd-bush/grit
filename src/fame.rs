@@ -110,7 +110,7 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
 
     let mut rt = runtime::Builder::new()
         .threaded_scheduler()
-        .thread_name("grit-thread-runner")
+        .thread_name("grit-fame-thread-runner")
         .build()
         .expect("Failed to create threadpool.");
 

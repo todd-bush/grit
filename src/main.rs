@@ -177,8 +177,8 @@ fn run(args: &Args) -> Result<()> {
         );
         by_file::by_file(by_file_args)?;
     } else if args.cmd_effort {
-        let ea = EffortArgs::new(start_date, end_date, args.flag_table);
-        effort::effort(path, ea)?;
+        let ea = EffortArgs::new(path.to_string(), start_date, end_date, args.flag_table);
+        effort::effort(ea)?;
     };
 
     Ok(())
