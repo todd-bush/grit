@@ -40,7 +40,7 @@ Options:
 
 ```grit fame``` will create a table of metrics per author.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.
 
-```git effort``` will output the # of commits and # of active dates for each file.  Default is CSV, option for a table.
+```git effort``` will output the # of commits and # of active dates for each file.  Default is CSV, option for a table.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.
 
 ## Fame Example
 
