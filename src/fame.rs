@@ -97,7 +97,8 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
 
     let file_names: Vec<String> = grit_utils::generate_file_list(&rpc, args.include, args.exclude)?;
 
-    let (earliest_commit, latest_commit) = find_commit_range(rpc, args.start_date, args.end_date)?;
+    let (earliest_commit, latest_commit) =
+        grit_utils::find_commit_range(rpc, args.start_date, args.end_date)?;
 
     info!("Early, Late: {:?},{:?}", earliest_commit, latest_commit);
 
@@ -109,7 +110,7 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
 
     let mut rt = runtime::Builder::new()
         .threaded_scheduler()
-        .thread_name("grit-thread-runner")
+        .thread_name("grit-fame-thread-runner")
         .build()
         .expect("Failed to create threadpool.");
 
@@ -312,61 +313,6 @@ async fn process_file<'a>(
     Ok(result)
 }
 
-fn find_commit_range(
-    repo_path: String,
-    start_date: Option<Date<Local>>,
-    end_date: Option<Date<Local>>,
-) -> GenResult<(Option<Vec<u8>>, Option<Vec<u8>>)> {
-    let mut earliest_commit = None;
-    let mut latest_commit = None;
-
-    let repo = Repository::open(repo_path.clone()).expect(format_tostr!(
-        "Could not open repo for path {}",
-        repo_path.clone()
-    ));
-
-    if let Some(d) = start_date {
-        let start_date_sec = d.naive_local().and_hms(0, 0, 0).timestamp();
-        let mut revwalk = repo.revwalk()?;
-        revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME).expect("Could not sort revwalk");
-        revwalk.push_head()?;
-
-        for id in revwalk {
-            let oid = id?;
-            let commit = repo.find_commit(oid)?;
-            let commit_time = commit.time().seconds();
-
-            if commit_time >= start_date_sec {
-                earliest_commit = Some(oid.as_bytes().iter().map(|b| *b).collect())
-            } else {
-                break;
-            }
-        }
-    }
-
-    if let Some(d) = end_date {
-        let end_date_sec = d.naive_local().and_hms(23, 59, 59).timestamp();
-
-        let mut revwalk = repo.revwalk()?;
-        revwalk.set_sorting(git2::Sort::REVERSE | git2::Sort::TIME).expect("Could not sort revwalk");
-        revwalk.push_head()?;
-
-        for id in revwalk {
-            let oid = id?;
-            let commit = repo.find_commit(oid)?;
-            let commit_time = commit.time().seconds();
-
-            if commit_time <= end_date_sec {
-                latest_commit = Some(oid.as_bytes().iter().map(|b| *b).collect())
-            } else {
-                break;
-            }
-        }
-    }
-
-    Ok((earliest_commit, latest_commit))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -501,36 +447,5 @@ mod tests {
         assert!(result, "test_process_fame_include result was {}", result);
 
         println!("completed test_process_fame_include in {:?}", duration);
-    }
-
-    #[test]
-    fn test_find_commit_range_no() {
-        simple_logger::init_with_level(Level::Info).unwrap_or(());
-
-        let td: TempDir = crate::grit_test::init_repo();
-        let path = td.path().to_str().unwrap();
-
-        let (early, late) = find_commit_range(path.to_string(), None, None).unwrap();
-
-        assert_eq!(early, None);
-        assert_eq!(late, None);
-    }
-
-    #[test]
-    fn test_find_commit_range_early() {
-        simple_logger::init_with_level(Level::Info).unwrap_or(());
-
-        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
-
-        let ed = Local.from_local_date(&utc_dt).single().unwrap();
-        let td: TempDir = crate::grit_test::init_repo();
-        let path = td.path().to_str().unwrap();
-
-        let (early, late) = find_commit_range(path.to_string(), Some(ed), None).unwrap();
-
-        //info!("early = {:?}", early.unwrap());
-
-        assert!(early.unwrap().len() > 0);
-        assert_eq!(late, None);
     }
 }
