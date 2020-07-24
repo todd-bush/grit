@@ -1,4 +1,5 @@
 use crate::utils::grit_utils;
+use anyhow::Result;
 use chrono::{Date, Local};
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
@@ -87,7 +88,7 @@ impl FameOutputLine {
     }
 }
 
-type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+type GenResult<T> = Result<T>;
 
 pub fn process_fame(args: FameArgs) -> GenResult<()> {
     let repo_path = args.path.clone();

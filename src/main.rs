@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate log;
+extern crate anyhow;
 extern crate charts;
 extern crate chrono;
 extern crate csv;
@@ -23,9 +24,10 @@ pub use crate::utils::grit_utils;
 use crate::by_date::ByDateArgs;
 use crate::by_file::ByFileArgs;
 use crate::chrono::TimeZone;
-use crate::fame::FameArgs;
 use crate::effort::EffortArgs;
+use crate::fame::FameArgs;
 
+use anyhow::Result;
 use chrono::{Date, Local, NaiveDate};
 use docopt::Docopt;
 use log::Level;
@@ -82,8 +84,6 @@ Options:
     --ignore-gap-fill           ignore filling empty dates with 0 commits
     -v, --verbose
 ";
-
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn run(args: &Args) -> Result<()> {
     let path = ".";

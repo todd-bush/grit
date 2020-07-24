@@ -1,4 +1,5 @@
 use crate::utils::grit_utils;
+use anyhow::Result;
 use charts::{
     AxisPosition, BarDatum, BarLabelPosition, Chart, ScaleBand, ScaleLinear, VerticalBarView,
 };
@@ -64,7 +65,7 @@ impl BarDatum for ByFile {
     }
 }
 
-type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+type GenResult<T> = Result<T>;
 
 pub fn by_file(args: ByFileArgs) -> GenResult<()> {
     let output_file = args.output_file.clone();
@@ -205,7 +206,8 @@ fn display_image(
         .set_y_scale(&y_sb)
         .set_keys(authors)
         .set_label_position(BarLabelPosition::Center)
-        .load_data(&data)?;
+        .load_data(&data)
+        .expect("Failed to create Vertical View");
 
     let _chart = Chart::new()
         .set_width(width)
@@ -217,7 +219,8 @@ fn display_image(
         .add_axis_left(&y_sb)
         .add_legend_at(AxisPosition::Top)
         .set_bottom_axis_tick_label_rotation(-45)
-        .save(Path::new(&f))?;
+        .save(Path::new(&f))
+        .expect("Failed to create Chart");
 
     if html {
         grit_utils::create_html(&f).expect("Failed to create HTML file");

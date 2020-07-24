@@ -1,4 +1,5 @@
 use crate::utils::grit_utils;
+use anyhow::Result;
 use chrono::offset::Local;
 use chrono::Date;
 use csv::Writer;
@@ -54,7 +55,7 @@ impl EffortOutput {
     }
 }
 
-type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+type GenResult<T> = Result<T>;
 
 pub fn effort(args: EffortArgs) -> GenResult<()> {
     let results = process_effort(args.path, args.start_date, args.end_date)?;
