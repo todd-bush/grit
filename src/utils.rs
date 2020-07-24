@@ -24,8 +24,9 @@ pub mod grit_utils {
     use std::fs::File;
     use std::io::Write;
     use std::path::Path;
+    use anyhow::Result;
 
-    type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+    type GenResult<T> = Result<T>;
 
     pub fn generate_file_list(
         path: &str,

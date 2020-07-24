@@ -1,4 +1,5 @@
 use crate::utils::grit_utils;
+use anyhow::Result;
 use charts::{
     Chart, LineSeriesView, MarkerType, PointDatum, PointLabelPosition, ScaleBand, ScaleLinear,
 };
@@ -74,7 +75,7 @@ impl ByDateArgs {
     }
 }
 
-type GenResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+type GenResult<T> = Result<T>;
 
 pub fn by_date(repo_path: &str, args: ByDateArgs) -> GenResult<()> {
     let output = process_date(
@@ -283,7 +284,8 @@ fn create_output_image(output: Vec<ByDate>, file: String, html: bool) -> GenResu
         .set_marker_type(MarkerType::Circle)
         .set_label_position(PointLabelPosition::NW)
         .set_label_visibility(false) // remove this line to enable point labels, once configurable
-        .load_data(&output)?;
+        .load_data(&output)
+        .expect("Failed to create Line View");
 
     let _chart = Chart::new()
         .set_width(width)
@@ -295,7 +297,8 @@ fn create_output_image(output: Vec<ByDate>, file: String, html: bool) -> GenResu
         .add_axis_left(&y)
         .add_left_axis_label("Commits")
         .set_bottom_axis_tick_label_rotation(-45)
-        .save(Path::new(&file))?;
+        .save(Path::new(&file))
+        .expect("Failed to create Chart");
 
     if html {
         grit_utils::create_html(&file).expect("Failed to make HTML file.");
