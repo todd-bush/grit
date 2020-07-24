@@ -82,9 +82,6 @@ fn process_effort(
 
     let pgb = ProgressBar::new(file_names.len() as u64);
 
-    let result_holder: Vec<EffortOutput> = vec![];
-
-    let arc_results = Arc::new(RwLock::new(result_holder));
     let arc_pgb = Arc::new(RwLock::new(pgb));
     let rpa = Arc::new(rpc);
 
@@ -99,7 +96,6 @@ fn process_effort(
     for file_name in file_names {
         let rp = rpa.clone();
         let fne = file_name.clone();
-        let arc_results_c = arc_results.clone();
         let arc_pgb_c = arc_pgb.clone();
 
         let ec = earliest_commit.clone();
@@ -109,17 +105,12 @@ fn process_effort(
             process_effort_file(&rp.clone(), &fne, ec, lc)
                 .await
                 .map(|e| {
-                    arc_results_c
-                        .write()
-                        .expect("Cannot write to shared vector")
-                        .push(e.clone());
-
                     arc_pgb_c
                         .write()
                         .expect("Cannot write to shared progress bar")
                         .inc(1);
 
-                    e.clone()
+                    e
                 })
                 .map_err(|err| {
                     error!("Error processing effort: {}", err);
@@ -127,7 +118,7 @@ fn process_effort(
         }));
     }
 
-    rt.block_on(join_all(tasks));
+    let jh_results = rt.block_on(join_all(tasks));
 
     arc_pgb
         .write()
@@ -136,13 +127,11 @@ fn process_effort(
 
     let mut results: Vec<EffortOutput> = vec![];
 
-    arc_results
-        .read()
-        .expect("Could not open shared vector to read")
-        .iter()
-        .for_each(|r| {
-            results.push(r.clone());
-        });
+    for jh in jh_results.into_iter() {
+        let r = jh.unwrap().unwrap().clone();
+
+        results.push(r);
+    }
 
     results.sort_by(|a, b| b.commits.cmp(&a.commits));
 
@@ -163,6 +152,8 @@ async fn process_effort_file<'a>(
     let mut blame_ops = BlameOptions::new();
     let mut effort_commits: HashSet<String> = HashSet::new();
     let mut effort_dates: HashSet<Date<Local>> = HashSet::new();
+
+    blame_ops.track_copies_any_commit_copies(false);
 
     if let Some(ev) = earliest_commit {
         let oid: Oid = Oid::from_bytes(&ev)?;
