@@ -64,7 +64,13 @@ impl EffortOutput {
 type GenResult<T> = Result<T>;
 
 pub fn effort(args: EffortArgs) -> GenResult<()> {
-    let results = process_effort(args.path, args.start_date, args.end_date, args.include, args.exclude)?;
+    let results = process_effort(
+        args.path,
+        args.start_date,
+        args.end_date,
+        args.include,
+        args.exclude,
+    )?;
 
     if args.table {
         display_table(results).expect("Failed to create Effort table");
@@ -252,6 +258,24 @@ mod test {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
         let ea = EffortArgs::new(path.to_string(), None, None, true, None, None);
+
+        let _result = effort(ea);
+    }
+
+    #[test]
+    fn test_effort_include() {
+        simple_logger::init_with_level(Level::Info).unwrap_or(());
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+        let ea = EffortArgs::new(
+            path.to_string(),
+            None,
+            None,
+            true,
+            Some("*.rs,*.md".to_string()),
+            None,
+        );
 
         let _result = effort(ea);
     }
