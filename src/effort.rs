@@ -20,6 +20,8 @@ pub struct EffortArgs {
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
     table: bool,
+    include: Option<String>,
+    exclude: Option<String>,
 }
 
 impl EffortArgs {
@@ -28,12 +30,16 @@ impl EffortArgs {
         start_date: Option<Date<Local>>,
         end_date: Option<Date<Local>>,
         table: bool,
+        include: Option<String>,
+        exclude: Option<String>,
     ) -> Self {
         EffortArgs {
             path,
             start_date,
             end_date,
             table,
+            include,
+            exclude,
         }
     }
 }
@@ -58,7 +64,13 @@ impl EffortOutput {
 type GenResult<T> = Result<T>;
 
 pub fn effort(args: EffortArgs) -> GenResult<()> {
-    let results = process_effort(args.path, args.start_date, args.end_date)?;
+    let results = process_effort(
+        args.path,
+        args.start_date,
+        args.end_date,
+        args.include,
+        args.exclude,
+    )?;
 
     if args.table {
         display_table(results).expect("Failed to create Effort table");
@@ -73,13 +85,15 @@ fn process_effort(
     repo_path: String,
     start_date: Option<Date<Local>>,
     end_date: Option<Date<Local>>,
+    include: Option<String>,
+    exclude: Option<String>,
 ) -> GenResult<Vec<EffortOutput>> {
     let rpc = repo_path.clone();
 
     let (earliest_commit, latest_commit) =
         grit_utils::find_commit_range(repo_path.to_string(), start_date, end_date)?;
 
-    let file_names: Vec<String> = grit_utils::generate_file_list(&repo_path, None, None)?;
+    let file_names: Vec<String> = grit_utils::generate_file_list(&repo_path, include, exclude)?;
 
     let pgb = ProgressBar::new(file_names.len() as u64);
 
@@ -232,7 +246,7 @@ mod test {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let result = process_effort(path.to_string(), None, None);
+        let result = process_effort(path.to_string(), None, None, None, None);
 
         info!("results: {:?}", result);
     }
@@ -243,7 +257,25 @@ mod test {
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
-        let ea = EffortArgs::new(path.to_string(), None, None, true);
+        let ea = EffortArgs::new(path.to_string(), None, None, true, None, None);
+
+        let _result = effort(ea);
+    }
+
+    #[test]
+    fn test_effort_include() {
+        simple_logger::init_with_level(Level::Info).unwrap_or(());
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+        let ea = EffortArgs::new(
+            path.to_string(),
+            None,
+            None,
+            true,
+            Some("*.rs,*.md".to_string()),
+            None,
+        );
 
         let _result = effort(ea);
     }
