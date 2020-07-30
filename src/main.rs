@@ -65,7 +65,7 @@ Usage:
     grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
     grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--html] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
     grit byfile [--in-file=<string>] [--file=<string>] [--image] [--html] [--verbose] [--debug]
-    grit effort [--start-date=<string>] [--end-date=<string>] [--table] [--verbose] [--debug]
+    grit effort [--start-date=<string>] [--end-date=<string>] [--table] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
 
 Options:
     --debug                     enables debug
@@ -177,7 +177,14 @@ fn run(args: &Args) -> Result<()> {
         );
         by_file::by_file(by_file_args)?;
     } else if args.cmd_effort {
-        let ea = EffortArgs::new(path.to_string(), start_date, end_date, args.flag_table);
+        let ea = EffortArgs::new(
+            path.to_string(),
+            start_date,
+            end_date,
+            args.flag_table,
+            args.flag_include.clone(),
+            args.flag_exclude.clone(),
+        );
         effort::effort(ea)?;
     };
 
