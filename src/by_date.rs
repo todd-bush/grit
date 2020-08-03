@@ -319,7 +319,7 @@ mod tests {
 
     #[test]
     fn test_by_date_no_ends() {
-        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_by_date_no_weekends() {
-        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
@@ -364,7 +364,7 @@ mod tests {
 
     #[test]
     fn test_by_date_end_date_only() {
-        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
@@ -389,7 +389,7 @@ mod tests {
 
     #[test]
     fn test_by_date_image() {
-        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn test_is_weekend() {
-        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let utc_weekday =
             NaiveDateTime::parse_from_str("2020-04-20 0:0", "%Y-%m-%d %H:%M").unwrap();
@@ -440,6 +440,7 @@ mod tests {
 
     #[test]
     fn test_fill_date_gaps() {
+        crate::grit_test::set_test_logging(LOG_LEVEL);
         let test_data: Vec<ByDate> = [
             ByDate::new(parse_date("2020-03-13"), 15),
             ByDate::new(parse_date("2020-03-16"), 45),
@@ -457,6 +458,7 @@ mod tests {
     }
 
     fn parse_date(date_str: &str) -> Date<Local> {
+        crate::grit_test::set_test_logging(LOG_LEVEL);
         let utc_dt = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
 
         Local.from_local_date(&utc_dt).single().unwrap()

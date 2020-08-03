@@ -239,9 +239,11 @@ mod test {
     use log::Level;
     use tempfile::TempDir;
 
+    const LOG_LEVEL: Level = Level::Info;
+
     #[test]
     fn test_process_effort() {
-        simple_logger::init_with_level(Level::Info).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
@@ -253,7 +255,7 @@ mod test {
 
     #[test]
     fn test_effort() {
-        simple_logger::init_with_level(Level::Info).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
@@ -264,7 +266,7 @@ mod test {
 
     #[test]
     fn test_effort_include() {
-        simple_logger::init_with_level(Level::Info).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();

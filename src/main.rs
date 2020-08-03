@@ -220,8 +220,13 @@ fn main() {
 mod tests {
     use super::*;
 
+    const LOG_LEVEL: Level = Level::Info;
+
     #[test]
     fn test_parse_datelocal_good() {
+
+        crate::grit_test::set_test_logging(LOG_LEVEL);
+
         let r = parse_datelocal("2020-04-01");
 
         match r {
@@ -233,6 +238,10 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_parse_datelocal_bad() {
+
+        crate::grit_test::set_test_logging(LOG_LEVEL);
+
+        
         let r = parse_datelocal("2020-04-01t");
 
         match r {

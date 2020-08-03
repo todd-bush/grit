@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_process_file() {
-        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let td: TempDir = crate::grit_test::init_repo();
 
@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn test_by_file() {
-        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let td: TempDir = crate::grit_test::init_repo();
 
@@ -286,7 +286,7 @@ mod tests {
 
     #[test]
     fn test_by_file_with_image() {
-        simple_logger::init_with_level(LOG_LEVEL).unwrap_or(());
+        crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let td: TempDir = crate::grit_test::init_repo();
 
