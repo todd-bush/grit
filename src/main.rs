@@ -14,6 +14,7 @@ mod by_date;
 mod by_file;
 mod effort;
 mod fame;
+mod devs;
 
 #[cfg(test)]
 #[macro_use]
