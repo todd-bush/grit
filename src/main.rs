@@ -3,6 +3,7 @@ extern crate log;
 extern crate anyhow;
 extern crate charts;
 extern crate chrono;
+extern crate clap;
 extern crate csv;
 extern crate simple_logger;
 extern crate tokio;
@@ -29,6 +30,7 @@ use crate::fame::FameArgs;
 
 use anyhow::Result;
 use chrono::{Date, Local, NaiveDate};
+use clap::{App, Arg};
 use docopt::Docopt;
 use log::Level;
 use serde_derive::Deserialize;
@@ -214,6 +216,114 @@ fn main() {
         Ok(()) => {}
         Err(e) => println!("error: {}", e),
     }
+
+    let arg_start_date = Arg::new("start-date")
+        .about("start date in YYYY-MM-DD format")
+        .takes_value(true)
+        .long("start-date");
+
+    let arg_end_date = Arg::new("end-date")
+        .about("end date in YYYY-MM-DD format")
+        .takes_value(true)
+        .long("end-date");
+
+    let arg_include = Arg::new("include")
+        .about("comma delimited, glob file path to include path1/*,path2/*")
+        .takes_value(true)
+        .long("include");
+
+    let arg_exclude = Arg::new("exclude")
+        .about("comma delimited, glob file path to exclude path1/*,path2/*")
+        .takes_value(true)
+        .long("exclude");
+
+    let arg_file = Arg::new("file").about("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg").takes_value(true).long("file");
+
+    let matches = App::new("Grit")
+        .about("git repository analyzer")
+        .author("Todd Bush")
+        .arg(Arg::new("debug").about("enables debug logging").short('d'))
+        .arg(Arg::new("verbose").about("enables info logging").short('v'))
+        .subcommand(
+            App::new("fame").args(&[
+                Arg::new("sort")
+                    .about("sort field, either 'commit', 'loc', 'files")
+                    .takes_value(true)
+                    .long("sort"),
+                arg_start_date.clone(),
+                arg_end_date.clone(),
+                arg_include.clone(),
+                arg_exclude.clone(),
+            ]),
+        )
+        .subcommand(
+            App::new("bydate").args(&[
+                arg_start_date.clone(),
+                arg_end_date.clone(),
+                arg_file.clone(),
+                Arg::new("image")
+                    .about("creates an image for the graph.  file is required")
+                    .requires("file")
+                    .takes_value(false)
+                    .long("image"),
+                Arg::new("html")
+                    .about("creates a HTML file to help visualize the SVG output")
+                    .requires("image")
+                    .takes_value(false)
+                    .long("html"),
+                Arg::new("ignore-weekends")
+                    .about("ignore weekends when calculating # of commits")
+                    .takes_value(false)
+                    .long("ignore-weekends"),
+                Arg::new("ignore-gap-fill")
+                    .about("ignore filling empty dates with 0 commits")
+                    .takes_value(false)
+                    .long("ignore-gap-fill"),
+            ]),
+        )
+        .subcommand(
+            App::new("byfile").args(&[
+                Arg::new("in-file")
+                    .about("input file")
+                    .takes_value(true)
+                    .long("in-file"),
+                arg_file.clone(),
+                Arg::new("image")
+                    .about("creates an image for the graph.  file is required")
+                    .requires("file")
+                    .takes_value(false)
+                    .long("image"),
+                Arg::new("html")
+                    .about("creates a HTML file to help visualize the SVG output")
+                    .requires("image")
+                    .takes_value(false)
+                    .long("html"),
+            ]),
+        )
+        .subcommand(
+            App::new("effort").args(&[
+                arg_start_date.clone(),
+                arg_end_date.clone(),
+                arg_include,
+                arg_exclude,
+                Arg::new("table")
+                    .about("display as a table to stdout")
+                    .takes_value(false)
+                    .long("table"),
+            ]),
+        )
+        .get_matches();
+
+        let level = if matches.is_present("debug") {
+            Level::Debug
+        } else if matches.is_present("verbose") {
+            Level::Info
+        } else {
+            Level::Error
+        };
+
+        simple_logger::init_with_level(level).unwrap();
+
 }
 
 #[cfg(test)]
@@ -224,7 +334,6 @@ mod tests {
 
     #[test]
     fn test_parse_datelocal_good() {
-
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
         let r = parse_datelocal("2020-04-01");
@@ -238,10 +347,8 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_parse_datelocal_bad() {
-
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
-        
         let r = parse_datelocal("2020-04-01t");
 
         match r {
