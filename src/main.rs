@@ -36,7 +36,6 @@ use std::str;
 
 pub const DEFAULT_THREADS: usize = 10;
 
-
 fn parse_datelocal(date_string: &str) -> Result<Date<Local>> {
     let utc_dt = NaiveDate::parse_from_str(date_string, "%Y-%m-%d");
 
@@ -82,7 +81,6 @@ fn is_svg(val: &str) -> Result<(), String> {
 }
 
 fn main() {
-
     let arg_start_date = Arg::new("start-date")
         .about("start date in YYYY-MM-DD format")
         .takes_value(true)
@@ -226,7 +224,7 @@ fn handle_bydate(args: &ArgMatches) {
         args.is_present("html"),
     );
 
-    by_date::by_date(".", by_date_args);
+    let _ = by_date::by_date(".", by_date_args);
 }
 
 fn handle_byfile(args: &ArgMatches) {
@@ -238,7 +236,7 @@ fn handle_byfile(args: &ArgMatches) {
         args.is_present("html"),
     );
 
-    by_file::by_file(by_file_args);
+    let _ = by_file::by_file(by_file_args);
 }
 
 fn handle_effort(args: &ArgMatches) {
@@ -250,7 +248,8 @@ fn handle_effort(args: &ArgMatches) {
         convert_str_string(args.value_of("include")),
         convert_str_string(args.value_of("exclude")),
     );
-    effort::effort(ea);
+
+    let _ = effort::effort(ea);
 }
 
 #[cfg(test)]
