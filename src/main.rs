@@ -31,7 +31,8 @@ use crate::fame::FameArgs;
 use anyhow::Result;
 use chrono::{Date, Local, NaiveDate};
 use clap::{App, Arg, ArgMatches};
-use log::Level;
+use log::LevelFilter;
+use simple_logger::SimpleLogger;
 use std::str;
 
 pub const DEFAULT_THREADS: usize = 10;
@@ -181,14 +182,14 @@ fn main() {
         .get_matches();
 
     let level = if matches.is_present("debug") {
-        Level::Debug
+        LevelFilter::Debug
     } else if matches.is_present("verbose") {
-        Level::Info
+        LevelFilter::Info
     } else {
-        Level::Error
+        LevelFilter::Error
     };
 
-    simple_logger::init_with_level(level).unwrap();
+    SimpleLogger::new().with_level(level).init().unwrap();
 
     match matches.subcommand_name() {
         Some("fame") => handle_fame(matches.subcommand_matches("fame").unwrap()),
@@ -256,7 +257,7 @@ fn handle_effort(args: &ArgMatches) {
 mod tests {
     use super::*;
 
-    const LOG_LEVEL: Level = Level::Info;
+    const LOG_LEVEL: LevelFilter = LevelFilter::Info;
 
     #[test]
     fn test_parse_datelocal_good() {

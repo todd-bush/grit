@@ -233,10 +233,10 @@ fn display_image(
 mod tests {
 
     use super::*;
-    use log::Level;
+    use log::LevelFilter;
     use tempfile::TempDir;
 
-    const LOG_LEVEL: Level = Level::Info;
+    const LOG_LEVEL: LevelFilter = LevelFilter::Info;
 
     #[test]
     fn test_process_file() {

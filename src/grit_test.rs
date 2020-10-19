@@ -1,7 +1,8 @@
 use git2::build::RepoBuilder;
 extern crate tempfile;
 use tempfile::{Builder, TempDir};
-use log::Level;
+use log::LevelFilter;
+use simple_logger::SimpleLogger;
 
 pub fn init_repo() -> TempDir {
     let td = Builder::new().prefix("grit-test").tempdir().unwrap();
@@ -15,6 +16,6 @@ pub fn init_repo() -> TempDir {
     td
 }
 
-pub fn set_test_logging(level: Level) {
-    simple_logger::init_with_level(level).unwrap_or(());
+pub fn set_test_logging(level: LevelFilter) {
+    SimpleLogger::new().with_level(level).init().unwrap_or(());
 }

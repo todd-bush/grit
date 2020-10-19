@@ -311,11 +311,11 @@ fn create_output_image(output: Vec<ByDate>, file: String, html: bool) -> GenResu
 mod tests {
     use super::*;
     use chrono::NaiveDate;
-    use log::Level;
+    use log::LevelFilter;
     use std::time::Instant;
     use tempfile::TempDir;
 
-    const LOG_LEVEL: Level = Level::Info;
+    const LOG_LEVEL: LevelFilter = LevelFilter::Info;
 
     #[test]
     fn test_by_date_no_ends() {

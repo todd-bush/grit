@@ -319,10 +319,10 @@ mod tests {
     use super::*;
     use chrono::NaiveDate;
     use chrono::TimeZone;
-    use log::Level;
+    use log::LevelFilter;
     use tempfile::TempDir;
 
-    const LOG_LEVEL: Level = Level::Info;
+    const LOG_LEVEL: LevelFilter = LevelFilter::Info;
 
     #[test]
     fn test_process_fame() {

@@ -214,14 +214,14 @@ pub mod grit_utils {
 
         use super::*;
         use chrono::NaiveDate;
-        use log::Level;
+        use log::LevelFilter;
         use tempfile::TempDir;
 
         const DIR: &str = ".";
 
         #[test]
         fn test_generate_file_list_all() {
-            crate::grit_test::set_test_logging(Level::Info);
+            crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, None, None).unwrap();
 
             assert!(
@@ -233,7 +233,7 @@ pub mod grit_utils {
 
         #[test]
         fn test_generate_file_list_rust() {
-            crate::grit_test::set_test_logging(Level::Info);
+            crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, Some("*.rs".to_string()), None).unwrap();
 
             assert!(
@@ -245,7 +245,7 @@ pub mod grit_utils {
 
         #[test]
         fn test_generate_file_list_exclude_rust() {
-            crate::grit_test::set_test_logging(Level::Info);
+            crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, None, Some("*.rs".to_string())).unwrap();
 
             assert!(
@@ -257,7 +257,7 @@ pub mod grit_utils {
 
         #[test]
         fn test_format_date() {
-            crate::grit_test::set_test_logging(Level::Info);
+            crate::grit_test::set_test_logging(LevelFilter::Info);
             let test_date = Local.ymd(2020, 3, 13);
 
             assert_eq!(format_date(test_date), "2020-03-13");
@@ -265,21 +265,21 @@ pub mod grit_utils {
 
         #[test]
         fn test_get_filename_extension() {
-            crate::grit_test::set_test_logging(Level::Info);
+            crate::grit_test::set_test_logging(LevelFilter::Info);
             assert_eq!(get_filename_extension("test.txt"), Some("txt"));
             assert_eq!(get_filename_extension("test"), None);
         }
 
         #[test]
         fn test_strip_extension() {
-            crate::grit_test::set_test_logging(Level::Info);
+            crate::grit_test::set_test_logging(LevelFilter::Info);
             assert_eq!(strip_extension("test.txt"), Some("test"));
             assert_eq!(strip_extension("src/test.txt"), Some("test"));
         }
 
         #[test]
         fn test_check_filetype() {
-            crate::grit_test::set_test_logging(Level::Info);
+            crate::grit_test::set_test_logging(LevelFilter::Info);
             assert!(check_file_type("test.txt", "txt"));
             assert!(check_file_type("test.rs", "rs"));
             assert!(!check_file_type("test.rs", "txt"));
@@ -287,7 +287,7 @@ pub mod grit_utils {
 
         #[test]
         fn test_find_commit_range_no() {
-            crate::grit_test::set_test_logging(Level::Info);
+            crate::grit_test::set_test_logging(LevelFilter::Info);
 
             let td: TempDir = crate::grit_test::init_repo();
             let path = td.path().to_str().unwrap();
@@ -300,7 +300,7 @@ pub mod grit_utils {
 
         #[test]
         fn test_find_commit_range_early() {
-            crate::grit_test::set_test_logging(Level::Info);
+            crate::grit_test::set_test_logging(LevelFilter::Info);
 
             let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
 

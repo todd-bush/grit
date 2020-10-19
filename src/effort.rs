@@ -236,10 +236,10 @@ fn display_table(data: Vec<EffortOutput>) -> GenResult<()> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use log::Level;
+    use log::LevelFilter;
     use tempfile::TempDir;
 
-    const LOG_LEVEL: Level = Level::Info;
+    const LOG_LEVEL: LevelFilter = LevelFilter::Info;
 
     #[test]
     fn test_process_effort() {
