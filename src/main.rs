@@ -102,15 +102,23 @@ fn main() {
         .takes_value(true)
         .long("exclude");
 
+    let arg_restrict_author = Arg::new("restrict-author")
+        .about("comma delimited of author's names to restrict")
+        .takes_value(true)
+        .long("restrict-author");
+
+    let arg_debug = Arg::new("debug").about("enables debug logging").short('d');
+    let arg_verbose = Arg::new("verbose").about("enables info logging").short('v');
+
     let arg_file = Arg::new("file").about("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg").takes_value(true).long("file").validator(is_svg);
 
     let matches = App::new("Grit")
         .about("git repository analyzer")
         .author("Todd Bush")
-        .arg(Arg::new("debug").about("enables debug logging").short('d'))
-        .arg(Arg::new("verbose").about("enables info logging").short('v'))
         .subcommand(
-            App::new("fame").args(&[
+            App::new("fame")
+            .about("will create a table of metrics per author.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
+            .args(&[
                 Arg::new("sort")
                     .about("sort field, either 'commit', 'loc', 'files")
                     .takes_value(true)
@@ -120,10 +128,15 @@ fn main() {
                 arg_end_date.clone(),
                 arg_include.clone(),
                 arg_exclude.clone(),
+                arg_restrict_author.clone(),
+                arg_debug.clone(),
+                arg_verbose.clone(),
             ]),
         )
         .subcommand(
-            App::new("bydate").args(&[
+            App::new("bydate")
+            .about("will create a csv of date and commit count to stdout or file.  Option to produce a SVG image.")
+            .args(&[
                 arg_start_date.clone(),
                 arg_end_date.clone(),
                 arg_file.clone(),
@@ -145,10 +158,15 @@ fn main() {
                     .about("ignore filling empty dates with 0 commits")
                     .takes_value(false)
                     .long("ignore-gap-fill"),
+                arg_restrict_author.clone(),
+                arg_debug.clone(),
+                arg_verbose.clone(),
             ]),
         )
         .subcommand(
-            App::new("byfile").args(&[
+            App::new("byfile")
+            .about("will create a csv of author, date, and commit counts to stdout or file.  Option to produce a SVG image.")
+            .args(&[
                 Arg::new("in-file")
                     .about("input file")
                     .takes_value(true)
@@ -165,14 +183,23 @@ fn main() {
                     .requires("image")
                     .takes_value(false)
                     .long("html"),
+                arg_restrict_author.clone(),
+                arg_debug.clone(),
+                arg_verbose.clone(),
             ]),
         )
         .subcommand(
-            App::new("effort").args(&[
+            App::new("effort")
+            .about("will output the # of commits and # of active dates for each file.  Default is CSV, option for a table.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
+            .args(&[
                 arg_start_date.clone(),
                 arg_end_date.clone(),
                 arg_include,
                 arg_exclude,
+                arg_restrict_author.clone(),
+                arg_debug.clone(),
+                arg_verbose.clone(),
+                arg_restrict_author.clone(),
                 Arg::new("table")
                     .about("display as a table to stdout")
                     .takes_value(false)
@@ -209,6 +236,7 @@ fn handle_fame(args: &ArgMatches) {
         parse_date_arg(args.value_of("end-date")),
         convert_str_string(args.value_of("include")),
         convert_str_string(args.value_of("exclude")),
+        convert_str_string(args.value_of("restrict-author")),
     );
 
     let _ = fame::process_fame(fame_args);
@@ -223,6 +251,7 @@ fn handle_bydate(args: &ArgMatches) {
         args.is_present("ignore_weekends"),
         args.is_present("ignore-gap_fill"),
         args.is_present("html"),
+        convert_str_string(args.value_of("restrict-author")),
     );
 
     let _ = by_date::by_date(".", by_date_args);
@@ -235,6 +264,7 @@ fn handle_byfile(args: &ArgMatches) {
         convert_str_string(args.value_of("file")),
         args.is_present("image"),
         args.is_present("html"),
+        convert_str_string(args.value_of("restrict-author")),
     );
 
     let _ = by_file::by_file(by_file_args);
@@ -248,6 +278,7 @@ fn handle_effort(args: &ArgMatches) {
         args.is_present("table"),
         convert_str_string(args.value_of("include")),
         convert_str_string(args.value_of("exclude")),
+        convert_str_string(args.value_of("restrict-author")),
     );
 
     let _ = effort::effort(ea);

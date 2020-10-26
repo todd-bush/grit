@@ -17,6 +17,7 @@ macro_rules! format_tostr {
 
 pub mod grit_utils {
 
+    use anyhow::Result;
     use chrono::{Date, Datelike, Local, NaiveDateTime, TimeZone};
     use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
@@ -24,7 +25,6 @@ pub mod grit_utils {
     use std::fs::File;
     use std::io::Write;
     use std::path::Path;
-    use anyhow::Result;
 
     type GenResult<T> = Result<T>;
 
@@ -101,6 +101,15 @@ pub mod grit_utils {
             .collect();
 
         Ok(file_names)
+    }
+
+    pub fn convert_string_list_to_vec(input: Option<String>) -> Option<Vec<String>> {
+        let result: Option<Vec<String>> = match input {
+            Some(s) => Some(s.split(",").map(|e| e.to_string()).collect()),
+            None => None,
+        };
+
+        result
     }
 
     pub fn convert_git_time(time: &Time) -> Date<Local> {
@@ -296,6 +305,17 @@ pub mod grit_utils {
 
             assert_eq!(early, None);
             assert_eq!(late, None);
+        }
+
+        #[test]
+        fn test_convert_string_list_to_vec() {
+            let test_vec: Vec<String> =
+                vec![String::from("1"), String::from("2"), String::from("3")];
+
+            assert_eq!(convert_string_list_to_vec(None), None);
+            assert_eq!(convert_string_list_to_vec(Some(String::from("1,2,3"))),
+                Some(test_vec)
+            );
         }
 
         #[test]

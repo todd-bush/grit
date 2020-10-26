@@ -20,6 +20,7 @@ pub struct FameArgs {
     end_date: Option<Date<Local>>,
     include: Option<String>,
     exclude: Option<String>,
+    restrict_authors: Option<String>,
 }
 
 impl FameArgs {
@@ -30,6 +31,7 @@ impl FameArgs {
         end_date: Option<Date<Local>>,
         include: Option<String>,
         exclude: Option<String>,
+        restrict_authors: Option<String>,
     ) -> Self {
         FameArgs {
             path,
@@ -38,6 +40,7 @@ impl FameArgs {
             end_date,
             include,
             exclude,
+            restrict_authors,
         }
     }
 }
@@ -97,6 +100,8 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
     let rpa = Arc::new(repo_path);
 
     let file_names: Vec<String> = grit_utils::generate_file_list(&rpc, args.include, args.exclude)?;
+
+    let restrict_authors: Option<Vec<String>> = grit_utils::convert_string_list_to_vec(args.restrict_authors);
 
     let (earliest_commit, latest_commit) =
         grit_utils::find_commit_range(rpc, args.start_date, args.end_date)?;
@@ -179,6 +184,15 @@ pub fn process_fame(args: FameArgs) -> GenResult<()> {
             om.lines += val.lines;
             max_lines += val.lines;
         }
+    }
+
+    match restrict_authors {
+        Some(v) => {
+            v.iter().for_each(|a| {
+                output_map.remove(a);
+            });
+        }
+        None => {}
     }
 
     // TODO - check on total_files
@@ -338,6 +352,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
 
         let start = Instant::now();
@@ -369,6 +384,7 @@ mod tests {
             path.to_string(),
             Some("loc".to_string()),
             Some(ed),
+            None,
             None,
             None,
             None,
@@ -406,6 +422,7 @@ mod tests {
             Some(ed),
             None,
             None,
+            None,
         );
 
         let start = Instant::now();
@@ -436,6 +453,7 @@ mod tests {
             None,
             Some("*.rs,*.md".to_string()),
             None,
+            None,
         );
 
         let start = Instant::now();
@@ -450,5 +468,36 @@ mod tests {
         assert!(result, "test_process_fame_include result was {}", result);
 
         println!("completed test_process_fame_include in {:?}", duration);
+    }
+
+    #[test]
+    fn test_process_fame_restrict_author() {
+        crate::grit_test::set_test_logging(LOG_LEVEL);
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+
+        let args = FameArgs::new(
+            path.to_string(),
+            Some("loc".to_string()),
+            None,
+            None,
+            None,
+            None,
+            Some(String::from("todd-bush")),
+        );
+
+        let start = Instant::now();
+
+        let result = match process_fame(args) {
+            Ok(()) => true,
+            Err(_t) => false,
+        };
+
+        let duration = start.elapsed();
+
+        assert!(result, "test_process_fame_restrict_author result was {}", result);
+
+        println!("completed test_process_fame_restrict_author in {:?}", duration);
     }
 }

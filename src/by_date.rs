@@ -51,6 +51,7 @@ pub struct ByDateArgs {
     ignore_weekends: bool,
     ignore_gap_fill: bool,
     html: bool,
+    restrict_author: Option<String>,
 }
 
 impl ByDateArgs {
@@ -62,6 +63,7 @@ impl ByDateArgs {
         ignore_weekends: bool,
         ignore_gap_fill: bool,
         html: bool,
+        restrict_author: Option<String>,
     ) -> Self {
         ByDateArgs {
             start_date,
@@ -71,6 +73,7 @@ impl ByDateArgs {
             ignore_weekends,
             ignore_gap_fill,
             html,
+            restrict_author,
         }
     }
 }
@@ -84,6 +87,7 @@ pub fn by_date(repo_path: &str, args: ByDateArgs) -> GenResult<()> {
         args.end_date,
         args.ignore_weekends,
         args.ignore_gap_fill,
+        grit_utils::convert_string_list_to_vec(args.restrict_author),
     )?;
 
     if args.image {
@@ -111,6 +115,7 @@ fn process_date(
     end_date: Option<Date<Local>>,
     ignore_weekends: bool,
     ignore_gap_fill: bool,
+    restrict_author: Option<Vec<String>>,
 ) -> GenResult<Vec<ByDate>> {
     let end_date = match end_date {
         Some(d) => d,
@@ -160,6 +165,16 @@ fn process_date(
 
         if commit_time > end_date_sec {
             return None;
+        }
+
+        match &restrict_author {
+            Some(v) => {
+                let name: String = commit.clone().author().name().unwrap().to_string();
+                if v.iter().any(|a| a == &name) {
+                    return None;
+                }
+            }
+            None => {}
         }
 
         Some(Ok(commit))
@@ -326,7 +341,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let args = ByDateArgs::new(None, None, None, false, false, false, false);
+        let args = ByDateArgs::new(None, None, None, false, false, false, false, None);
 
         let result = match by_date(path, args) {
             Ok(()) => true,
@@ -347,7 +362,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let args = ByDateArgs::new(None, None, None, false, true, true, false);
+        let args = ByDateArgs::new(None, None, None, false, true, true, false, None);
 
         let result = match by_date(path, args) {
             Ok(()) => true,
@@ -370,7 +385,7 @@ mod tests {
         let path = td.path().to_str().unwrap();
 
         let ed = parse_date("2020-03-26");
-        let args = ByDateArgs::new(None, Some(ed), None, false, false, false, false);
+        let args = ByDateArgs::new(None, Some(ed), None, false, false, false, false, None);
 
         let start = Instant::now();
 
@@ -388,6 +403,35 @@ mod tests {
     }
 
     #[test]
+    fn test_restrict_author() {
+        crate::grit_test::set_test_logging(LOG_LEVEL);
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+
+        let start = Instant::now();
+
+        let args = ByDateArgs::new(
+            None,
+            None,
+            None,
+            false,
+            false,
+            false,
+            false,
+            Some(String::from("todd-bush-ln")),
+        );
+
+        let result = match by_date(path, args) {
+            Ok(()) => true,
+            Err(_e) => false,
+        };
+
+        println!("completed test_restrict_author in {:?}", start.elapsed());
+
+        assert!(result, "test_restrict_author resut {}", result);
+    }
+
+    #[test]
     fn test_by_date_image() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
@@ -396,7 +440,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let output = process_date(path, None, None, false, true);
+        let output = process_date(path, None, None, false, true, None);
 
         let result = match create_output_image(
             output.unwrap(),
