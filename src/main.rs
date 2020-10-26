@@ -102,6 +102,11 @@ fn main() {
         .takes_value(true)
         .long("exclude");
 
+    let arg_restrict_author = Arg::new("restrict-author")
+        .about("comma delimited of author's names to restrict")
+        .takes_value(true)
+        .long("restrict-author");
+
     let arg_file = Arg::new("file").about("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg").takes_value(true).long("file").validator(is_svg);
 
     let matches = App::new("Grit")
@@ -120,6 +125,7 @@ fn main() {
                 arg_end_date.clone(),
                 arg_include.clone(),
                 arg_exclude.clone(),
+                arg_restrict_author.clone(),
             ]),
         )
         .subcommand(
@@ -145,6 +151,7 @@ fn main() {
                     .about("ignore filling empty dates with 0 commits")
                     .takes_value(false)
                     .long("ignore-gap-fill"),
+                arg_restrict_author.clone(),
             ]),
         )
         .subcommand(
@@ -173,6 +180,7 @@ fn main() {
                 arg_end_date.clone(),
                 arg_include,
                 arg_exclude,
+                arg_restrict_author.clone(),
                 Arg::new("table")
                     .about("display as a table to stdout")
                     .takes_value(false)
@@ -223,6 +231,7 @@ fn handle_bydate(args: &ArgMatches) {
         args.is_present("ignore_weekends"),
         args.is_present("ignore-gap_fill"),
         args.is_present("html"),
+        convert_str_string(args.value_of("restrict-author")),
     );
 
     let _ = by_date::by_date(".", by_date_args);
