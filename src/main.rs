@@ -115,7 +115,9 @@ fn main() {
         .arg(Arg::new("debug").about("enables debug logging").short('d'))
         .arg(Arg::new("verbose").about("enables info logging").short('v'))
         .subcommand(
-            App::new("fame").args(&[
+            App::new("fame")
+            .about("will create a table of metrics per author.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
+            .args(&[
                 Arg::new("sort")
                     .about("sort field, either 'commit', 'loc', 'files")
                     .takes_value(true)
@@ -129,7 +131,9 @@ fn main() {
             ]),
         )
         .subcommand(
-            App::new("bydate").args(&[
+            App::new("bydate")
+            .about("will create a csv of date and commit count to stdout or file.  Option to produce a SVG image.")
+            .args(&[
                 arg_start_date.clone(),
                 arg_end_date.clone(),
                 arg_file.clone(),
@@ -155,7 +159,9 @@ fn main() {
             ]),
         )
         .subcommand(
-            App::new("byfile").args(&[
+            App::new("byfile")
+            .about("will create a csv of author, date, and commit counts to stdout or file.  Option to produce a SVG image.")
+            .args(&[
                 Arg::new("in-file")
                     .about("input file")
                     .takes_value(true)
@@ -175,7 +181,9 @@ fn main() {
             ]),
         )
         .subcommand(
-            App::new("effort").args(&[
+            App::new("effort")
+            .about("will output the # of commits and # of active dates for each file.  Default is CSV, option for a table.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
+            .args(&[
                 arg_start_date.clone(),
                 arg_end_date.clone(),
                 arg_include,
