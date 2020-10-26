@@ -107,13 +107,14 @@ fn main() {
         .takes_value(true)
         .long("restrict-author");
 
+    let arg_debug = Arg::new("debug").about("enables debug logging").short('d');
+    let arg_verbose = Arg::new("verbose").about("enables info logging").short('v');
+
     let arg_file = Arg::new("file").about("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg").takes_value(true).long("file").validator(is_svg);
 
     let matches = App::new("Grit")
         .about("git repository analyzer")
         .author("Todd Bush")
-        .arg(Arg::new("debug").about("enables debug logging").short('d'))
-        .arg(Arg::new("verbose").about("enables info logging").short('v'))
         .subcommand(
             App::new("fame")
             .about("will create a table of metrics per author.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
@@ -128,6 +129,8 @@ fn main() {
                 arg_include.clone(),
                 arg_exclude.clone(),
                 arg_restrict_author.clone(),
+                arg_debug.clone(),
+                arg_verbose.clone(),
             ]),
         )
         .subcommand(
@@ -156,6 +159,8 @@ fn main() {
                     .takes_value(false)
                     .long("ignore-gap-fill"),
                 arg_restrict_author.clone(),
+                arg_debug.clone(),
+                arg_verbose.clone(),
             ]),
         )
         .subcommand(
@@ -179,6 +184,8 @@ fn main() {
                     .takes_value(false)
                     .long("html"),
                 arg_restrict_author.clone(),
+                arg_debug.clone(),
+                arg_verbose.clone(),
             ]),
         )
         .subcommand(
@@ -190,6 +197,8 @@ fn main() {
                 arg_include,
                 arg_exclude,
                 arg_restrict_author.clone(),
+                arg_debug.clone(),
+                arg_verbose.clone(),
                 Arg::new("table")
                     .about("display as a table to stdout")
                     .takes_value(false)
