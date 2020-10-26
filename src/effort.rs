@@ -22,6 +22,7 @@ pub struct EffortArgs {
     table: bool,
     include: Option<String>,
     exclude: Option<String>,
+    restrict_authors: Option<String>,
 }
 
 impl EffortArgs {
@@ -32,6 +33,7 @@ impl EffortArgs {
         table: bool,
         include: Option<String>,
         exclude: Option<String>,
+        restrict_authors: Option<String>,
     ) -> Self {
         EffortArgs {
             path,
@@ -40,6 +42,7 @@ impl EffortArgs {
             table,
             include,
             exclude,
+            restrict_authors,
         }
     }
 }
@@ -70,6 +73,7 @@ pub fn effort(args: EffortArgs) -> GenResult<()> {
         args.end_date,
         args.include,
         args.exclude,
+        grit_utils::convert_string_list_to_vec(args.restrict_authors),
     )?;
 
     if args.table {
@@ -87,6 +91,7 @@ fn process_effort(
     end_date: Option<Date<Local>>,
     include: Option<String>,
     exclude: Option<String>,
+    restrict_authors: Option<Vec<String>>,
 ) -> GenResult<Vec<EffortOutput>> {
     let rpc = repo_path.clone();
 
@@ -115,9 +120,10 @@ fn process_effort(
 
         let ec = earliest_commit.clone();
         let lc = latest_commit.clone();
+        let ra = restrict_authors.clone();
 
         tasks.push(rt.spawn(async move {
-            process_effort_file(&rp.clone(), &fne, ec, lc)
+            process_effort_file(&rp.clone(), &fne, ec, lc, ra)
                 .await
                 .map(|e| {
                     arc_pgb_c
@@ -158,6 +164,7 @@ async fn process_effort_file<'a>(
     file_name: &str,
     earliest_commit: Option<Vec<u8>>,
     latest_commit: Option<Vec<u8>>,
+    restrict_author: Option<Vec<String>>,
 ) -> GenResult<EffortOutput> {
     let mut result = EffortOutput::new(file_name.to_string());
 
@@ -192,6 +199,16 @@ async fn process_effort_file<'a>(
         let commit_id = hunk.final_commit_id();
         let commit = repo.find_commit(commit_id)?;
         let commit_date = grit_utils::convert_git_time(&commit.time());
+
+        match restrict_author {
+            Some(ref v) => {
+                let name: String = commit.clone().author().name().unwrap().to_string();
+                if v.iter().any(|a| a == &name) {
+                    break;
+                }
+            }
+            None => {}
+        }
 
         effort_commits.insert(commit_id.to_string());
         effort_dates.insert(commit_date);
@@ -248,7 +265,7 @@ mod test {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let result = process_effort(path.to_string(), None, None, None, None);
+        let result = process_effort(path.to_string(), None, None, None, None, None);
 
         info!("results: {:?}", result);
     }
@@ -259,7 +276,7 @@ mod test {
 
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
-        let ea = EffortArgs::new(path.to_string(), None, None, true, None, None);
+        let ea = EffortArgs::new(path.to_string(), None, None, true, None, None, None);
 
         let _result = effort(ea);
     }
@@ -277,6 +294,26 @@ mod test {
             true,
             Some("*.rs,*.md".to_string()),
             None,
+            None,
+        );
+
+        let _result = effort(ea);
+    }
+
+    #[test]
+    fn test_effort_restrict_author() {
+        crate::grit_test::set_test_logging(LOG_LEVEL);
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+        let ea = EffortArgs::new(
+            path.to_string(),
+            None,
+            None,
+            true,
+            None,
+            None,
+            Some(String::from("todd-bush-ln")),
         );
 
         let _result = effort(ea);

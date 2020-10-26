@@ -199,6 +199,7 @@ fn main() {
                 arg_restrict_author.clone(),
                 arg_debug.clone(),
                 arg_verbose.clone(),
+                arg_restrict_author.clone(),
                 Arg::new("table")
                     .about("display as a table to stdout")
                     .takes_value(false)
@@ -277,6 +278,7 @@ fn handle_effort(args: &ArgMatches) {
         args.is_present("table"),
         convert_str_string(args.value_of("include")),
         convert_str_string(args.value_of("exclude")),
+        convert_str_string(args.value_of("restrict-author")),
     );
 
     let _ = effort::effort(ea);
