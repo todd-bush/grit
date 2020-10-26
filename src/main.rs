@@ -178,6 +178,7 @@ fn main() {
                     .requires("image")
                     .takes_value(false)
                     .long("html"),
+                arg_restrict_author.clone(),
             ]),
         )
         .subcommand(
@@ -253,6 +254,7 @@ fn handle_byfile(args: &ArgMatches) {
         convert_str_string(args.value_of("file")),
         args.is_present("image"),
         args.is_present("html"),
+        convert_str_string(args.value_of("restrict-author")),
     );
 
     let _ = by_file::by_file(by_file_args);

@@ -20,6 +20,7 @@ pub struct ByFileArgs {
     output_file: Option<String>,
     image: bool,
     html: bool,
+    restrict_authors: Option<String>
 }
 
 impl ByFileArgs {
@@ -29,6 +30,7 @@ impl ByFileArgs {
         output_file: Option<String>,
         image: bool,
         html: bool,
+        restrict_authors: Option<String>
     ) -> Self {
         ByFileArgs {
             repo_path,
@@ -36,6 +38,7 @@ impl ByFileArgs {
             output_file,
             image,
             html,
+            restrict_authors,
         }
     }
 }
@@ -99,12 +102,22 @@ fn process_file(args: ByFileArgs) -> GenResult<Vec<ByFile>> {
 
     let blame = repo.blame_file(path, None)?;
     let mut auth_to_loc: HashMap<ByFile, usize> = HashMap::new();
+    let restrict_authors: Option<Vec<String>> = grit_utils::convert_string_list_to_vec(args.restrict_authors);
 
     for hunk in blame.iter() {
         let sig = hunk.final_signature();
         let signame = String::from_utf8_lossy(sig.name_bytes()).to_string();
         let commit = repo.find_commit(hunk.final_commit_id())?;
         let commit_date = grit_utils::convert_git_time(&commit.time());
+
+        match restrict_authors {
+            Some(ref v) => {
+                if v.iter().any(|a| { a == &signame}) {
+                    break;
+                }
+            }
+            None => {}
+        }
 
         let key = ByFile::new(signame, commit_date);
 
@@ -250,6 +263,7 @@ mod tests {
             None,
             false,
             false,
+            None,
         );
 
         let results: Vec<ByFile> = process_file(args).unwrap();
@@ -271,6 +285,7 @@ mod tests {
             None,
             false,
             false,
+            None,
         );
 
         let s = match by_file(args) {
@@ -296,6 +311,7 @@ mod tests {
             Some(String::from("target/to_file.svg")),
             true,
             true,
+            None,
         );
 
         let s = match by_file(args) {
