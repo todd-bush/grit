@@ -217,6 +217,7 @@ fn handle_fame(args: &ArgMatches) {
         parse_date_arg(args.value_of("end-date")),
         convert_str_string(args.value_of("include")),
         convert_str_string(args.value_of("exclude")),
+        convert_str_string(args.value_of("restrict-author")),
     );
 
     let _ = fame::process_fame(fame_args);
