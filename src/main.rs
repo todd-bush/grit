@@ -107,6 +107,11 @@ fn main() {
         .takes_value(true)
         .long("restrict-author");
 
+    let arg_pairs = Arg::new("pairs")
+        .about("parse and split any paired authors into individual names")
+        .takes_value(false)
+        .long("pairs");
+
     let arg_debug = Arg::new("debug").about("enables debug logging").short('d');
     let arg_verbose = Arg::new("verbose").about("enables info logging").short('v');
 
@@ -131,6 +136,7 @@ fn main() {
                 arg_restrict_author.clone(),
                 arg_debug.clone(),
                 arg_verbose.clone(),
+                arg_pairs.clone(),
             ]),
         )
         .subcommand(
@@ -186,6 +192,7 @@ fn main() {
                 arg_restrict_author.clone(),
                 arg_debug.clone(),
                 arg_verbose.clone(),
+                arg_pairs.clone(),
             ]),
         )
         .subcommand(

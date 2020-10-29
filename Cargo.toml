@@ -23,6 +23,7 @@ tokio = { version = "0.2.21", features = ["macros", "rt-core", "rt-threaded"] }
 futures = "0.3.5"
 charts = "0.3.0"
 anyhow = "1.0.31"
+array_tool = "1.0.3"
 
 [dev-dependencies]
 tempfile = "3.1.0"

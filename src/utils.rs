@@ -18,6 +18,7 @@ macro_rules! format_tostr {
 pub mod grit_utils {
 
     use anyhow::Result;
+    use array_tool::vec::Union;
     use chrono::{Date, Datelike, Local, NaiveDateTime, TimeZone};
     use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
@@ -150,6 +151,21 @@ pub mod grit_utils {
         Ok(())
     }
 
+    pub fn split_pairs(authors: &str) -> Vec<&str> {
+        let mut comma_split: Vec<&str> = authors.split(", ").collect();
+
+        let and_split: Vec<&str> = comma_split[comma_split.len() - 1].split(" and ").collect();
+        comma_split.pop();
+
+        let all_split: Vec<&str> = and_split
+            .union(comma_split)
+            .iter()
+            .map(|a| a.trim())
+            .collect();
+
+        all_split
+    }
+
     pub fn check_file_type(filename: &str, ext: &str) -> bool {
         let file_ext = match get_filename_extension(filename) {
             Some(f) => f,
@@ -224,6 +240,7 @@ pub mod grit_utils {
         use super::*;
         use chrono::NaiveDate;
         use log::LevelFilter;
+        use std::time::Instant;
         use tempfile::TempDir;
 
         const DIR: &str = ".";
@@ -287,6 +304,20 @@ pub mod grit_utils {
         }
 
         #[test]
+        fn test_split_pairs() {
+            crate::grit_test::set_test_logging(LevelFilter::Info);
+            let start = Instant::now();
+
+            assert_eq!(split_pairs("calvin and hobbes"), vec!["calvin", "hobbes"]);
+            assert_eq!(
+                split_pairs("this, that and the other thing").sort(),
+                vec!["this", "that", "the other thing"].sort()
+            );
+
+            info!("split_pairs took {:?}", start.elapsed());
+        }
+
+        #[test]
         fn test_check_filetype() {
             crate::grit_test::set_test_logging(LevelFilter::Info);
             assert!(check_file_type("test.txt", "txt"));
@@ -313,7 +344,8 @@ pub mod grit_utils {
                 vec![String::from("1"), String::from("2"), String::from("3")];
 
             assert_eq!(convert_string_list_to_vec(None), None);
-            assert_eq!(convert_string_list_to_vec(Some(String::from("1,2,3"))),
+            assert_eq!(
+                convert_string_list_to_vec(Some(String::from("1,2,3"))),
                 Some(test_vec)
             );
         }
