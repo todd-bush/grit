@@ -2,11 +2,15 @@ use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
 use chrono::{Date, Local};
+use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
 use prettytable::{cell, format, row, Table};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::{Arc, RwLock};
+use tokio::runtime;
+use tokio::task::JoinHandle;
 
 pub struct FameArgs {
     path: String,
@@ -90,6 +94,7 @@ pub struct Fame {
     args: FameArgs,
 }
 
+#[derive(Clone)]
 struct BlameProcessor {
     path: String,
     earliest_commit: Option<Vec<u8>>,
@@ -109,7 +114,7 @@ impl BlameProcessor {
         }
     }
 
-    fn process(&self, file_name: String) -> Result<Vec<BlameOutput>> {
+    async fn process(&self, file_name: String) -> Result<Vec<BlameOutput>> {
         let repo = Repository::open(&self.path)?;
         let file_path = Path::new(&file_name);
 
@@ -226,28 +231,59 @@ impl Processable<()> for Fame {
             self.args.exclude.clone(),
         )?;
 
-        let mut per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
-
+        let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
+        let arc_per_file = Arc::new(RwLock::new(per_file));
         let bp = BlameProcessor::new(
             self.args.path.clone(),
             earliest_commit.clone(),
             latest_commit.clone(),
         );
 
+        let mut rt = runtime::Builder::new()
+            .threaded_scheduler()
+            .thread_name("grit-fame-thread-runner")
+            .build()
+            .expect("Failed to create threadpool.");
+
+        let mut tasks: Vec<JoinHandle<Result<Vec<BlameOutput>, ()>>> = vec![];
+
         for file_name in file_names.iter() {
+            let file_name = file_name.clone();
+            let bp = bp.clone();
+            let arc_per_file_c = arc_per_file.clone();
+
             info!("processing file {}", file_name);
-
-            let bp_result = bp.process(String::from(file_name))?;
-
-            per_file.insert(String::from(file_name), bp_result);
+            tasks.push(rt.spawn(async move {
+                bp.process(String::from(file_name.clone()))
+                    .await
+                    .map(|pr| {
+                        &arc_per_file_c
+                            .write()
+                            .expect("Cannot open shared per_file map")
+                            .insert(String::from(file_name.clone()), (*pr).to_vec());
+                        pr
+                    })
+                    .map_err(|err| error!("Error in processing file: {}", err))
+            }));
         }
+
+        rt.block_on(join_all(tasks));
+
         let mut max_lines = 0;
         let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
         let mut total_commits: Vec<String> = Vec::new();
 
-        let max_files = per_file.keys().len();
+        let max_files = arc_per_file
+            .read()
+            .expect("Cannot open per_file map for read")
+            .keys()
+            .len();
 
-        for (key, value) in per_file {
+        for (key, value) in arc_per_file
+            .read()
+            .expect("Cannot open per_file map for read")
+            .iter()
+        {
             for v in value.iter() {
                 if let Some(ra) = &restrict_authors {
                     if ra.contains(&v.author) {
