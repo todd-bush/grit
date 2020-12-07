@@ -3,6 +3,7 @@ use crate::utils::grit_utils;
 use anyhow::Result;
 use chrono::{Date, Local};
 use git2::{BlameOptions, Oid, Repository};
+use prettytable::{cell, format, row, Table};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 use std::path::Path;
@@ -56,13 +57,41 @@ impl BlameOutput {
     }
 }
 
+#[derive(Clone)]
+struct FameOutputLine {
+    author: String,
+    lines: i32,
+    file_count: usize,
+    filenames: Vec<String>,
+    commits: Vec<String>,
+    commits_count: i32,
+    perc_lines: f64,
+    perc_files: f64,
+    perc_commits: f64,
+}
+
+impl FameOutputLine {
+    fn new() -> FameOutputLine {
+        FameOutputLine {
+            author: String::new(),
+            lines: 0,
+            commits: Vec::new(),
+            file_count: 0,
+            filenames: Vec::new(),
+            commits_count: 0,
+            perc_files: 0.0,
+            perc_lines: 0.0,
+            perc_commits: 0.0,
+        }
+    }
+}
+
 pub struct Fame {
     args: FameArgs,
 }
 
 struct BlameProcessor {
     path: String,
-    file_name: String,
     earliest_commit: Option<Vec<u8>>,
     latest_commit: Option<Vec<u8>>,
 }
@@ -70,21 +99,19 @@ struct BlameProcessor {
 impl BlameProcessor {
     fn new(
         path: String,
-        file_name: String,
         earliest_commit: Option<Vec<u8>>,
         latest_commit: Option<Vec<u8>>,
     ) -> BlameProcessor {
         BlameProcessor {
             path: path,
-            file_name: file_name,
             earliest_commit: earliest_commit,
             latest_commit: latest_commit,
         }
     }
 
-    fn process(&self) -> Result<Vec<BlameOutput>> {
+    fn process(&self, file_name: String) -> Result<Vec<BlameOutput>> {
         let repo = Repository::open(&self.path)?;
-        let file_path = Path::new(&self.file_name);
+        let file_path = Path::new(&file_name);
 
         let mut bo = BlameOptions::new();
 
@@ -135,6 +162,49 @@ impl Fame {
     pub fn new(args: FameArgs) -> Self {
         Fame { args: args }
     }
+
+    fn pretty_print_table(
+        &self,
+        output: Vec<FameOutputLine>,
+        tot_loc: i32,
+        tot_files: usize,
+        tot_commits: usize,
+    ) -> Result<()> {
+        println!("Stats on Repo");
+        println!("Total files: {}", tot_files);
+        println!("Total commits: {}", tot_commits);
+        println!("Total LOC: {}", tot_loc);
+
+        let mut table = Table::new();
+
+        table.set_titles(row![
+            "Author",
+            "Files",
+            "Commits",
+            "LOC",
+            "Distribution (%)"
+        ]);
+
+        for o in output.iter() {
+            let pf = format!("{:.1}", o.perc_files * 100.0);
+            let pc = format!("{:.1}", o.perc_commits * 100.0);
+            let pl = format!("{:.1}", o.perc_lines * 100.0);
+            let s = format!(
+                "{pf:<width$} / {pc:<width$} / {pl:<width$}",
+                pf = pf,
+                pc = pc,
+                pl = pl,
+                width = 5
+            );
+
+            table.add_row(row![o.author, o.file_count, o.commits_count, o.lines, s]);
+        }
+
+        table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+        table.printstd();
+
+        Ok(())
+    }
 }
 
 impl Processable<()> for Fame {
@@ -158,20 +228,80 @@ impl Processable<()> for Fame {
 
         let mut per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
 
-        for file_name in file_names.iter() {
-            let bp = BlameProcessor::new(
-                self.args.path.clone(),
-                String::from(file_name),
-                earliest_commit.clone(),
-                latest_commit.clone(),
-            );
+        let bp = BlameProcessor::new(
+            self.args.path.clone(),
+            earliest_commit.clone(),
+            latest_commit.clone(),
+        );
 
+        for file_name in file_names.iter() {
             info!("processing file {}", file_name);
 
-            let bp_result = bp.process()?;
+            let bp_result = bp.process(String::from(file_name))?;
 
             per_file.insert(String::from(file_name), bp_result);
         }
+        let mut max_lines = 0;
+        let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
+        let mut total_commits: Vec<String> = Vec::new();
+
+        let max_files = per_file.keys().len();
+
+        for (key, value) in per_file {
+            for v in value.iter() {
+                if let Some(ra) = &restrict_authors {
+                    if ra.contains(&v.author) {
+                        break;
+                    }
+                }
+
+                let om = match output_map.entry(v.author.clone()) {
+                    Vacant(entry) => entry.insert(FameOutputLine::new()),
+                    Occupied(entry) => entry.into_mut(),
+                };
+
+                om.commits.push(v.commit_id.clone());
+                total_commits.push(v.commit_id.clone());
+                om.filenames.push(key.clone());
+                om.lines += v.lines;
+                max_lines += v.lines;
+            }
+        }
+
+        total_commits.sort();
+        total_commits.dedup();
+        let max_commits = total_commits.len();
+
+        info!(
+            "Max files/commits/lines: {} {} {}",
+            max_files, max_commits, max_lines
+        );
+
+        let mut output: Vec<FameOutputLine> = output_map
+            .iter_mut()
+            .map(|(key, val)| {
+                val.commits.sort();
+                val.commits.dedup();
+                val.commits_count = val.commits.len() as i32;
+                val.filenames.sort();
+                val.filenames.dedup();
+                val.file_count = val.filenames.len();
+                val.author = String::from(key);
+                val.perc_files = (val.file_count) as f64 / (max_files) as f64;
+                val.perc_commits = (val.commits_count) as f64 / (max_commits) as f64;
+                val.perc_lines = (val.lines) as f64 / (max_lines) as f64;
+                val.clone()
+            })
+            .collect();
+
+        match self.args.sort {
+            Some(ref x) if x == "loc" => output.sort_by(|a, b| b.lines.cmp(&a.lines)),
+            Some(ref x) if x == "files" => output.sort_by(|a, b| b.file_count.cmp(&a.file_count)),
+            _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
+        }
+
+        self.pretty_print_table(output, max_lines, max_files, max_commits);
+
         Ok(())
     }
 }
