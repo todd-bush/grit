@@ -15,6 +15,7 @@ mod by_date;
 mod by_file;
 mod effort;
 mod fame;
+mod fame_two;
 
 #[cfg(test)]
 #[macro_use]
@@ -36,6 +37,10 @@ use simple_logger::SimpleLogger;
 use std::str;
 
 pub const DEFAULT_THREADS: usize = 10;
+
+pub trait Processable<T> {
+    fn process(&self) -> Result<T>;
+}
 
 fn parse_datelocal(date_string: &str) -> Result<Date<Local>> {
     let utc_dt = NaiveDate::parse_from_str(date_string, "%Y-%m-%d");
