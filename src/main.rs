@@ -26,7 +26,7 @@ use crate::by_date::ByDateArgs;
 use crate::by_file::ByFileArgs;
 use crate::chrono::TimeZone;
 use crate::effort::EffortArgs;
-use crate::fame::FameArgs;
+use crate::fame::{Fame, FameArgs};
 
 use anyhow::Result;
 use chrono::{Date, Local, NaiveDate};
@@ -36,6 +36,10 @@ use simple_logger::SimpleLogger;
 use std::str;
 
 pub const DEFAULT_THREADS: usize = 10;
+
+pub trait Processable<T> {
+    fn process(&self) -> Result<T>;
+}
 
 fn parse_datelocal(date_string: &str) -> Result<Date<Local>> {
     let utc_dt = NaiveDate::parse_from_str(date_string, "%Y-%m-%d");
@@ -238,8 +242,9 @@ fn handle_fame(args: &ArgMatches) {
         convert_str_string(args.value_of("exclude")),
         convert_str_string(args.value_of("restrict-author")),
     );
+    let fame = Fame::new(fame_args);
 
-    let _ = fame::process_fame(fame_args);
+    let _ = fame.process();
 }
 
 fn handle_bydate(args: &ArgMatches) {
