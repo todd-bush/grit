@@ -1,3 +1,27 @@
+//! grit
+//! Usage:
+//! grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
+//! grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--html] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
+//! grit byfile [--in-file=<string>] [--file=<string>] [--image] [--html] [--verbose] [--debug]
+//! grit effort [--start-date=<string>] [--end-date=<string>] [--table] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
+//!
+//! Options:
+//! --debug                     enables debug
+//! -h, --help                  displays help
+//! --sort=<field>              sort field, either 'commit' (default), 'loc', 'files'
+//! --start-date=<string>       start date in YYYY-MM-DD format.
+//! --end-date=<string>         end date in YYYY-MM-DD format.
+//! --include=<string>          comma delimited, glob file path to include path1/*,path2/*
+//! --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
+//! --file=<string>             output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg
+//! --in-file=<string>          input file for by_file
+//! --image                     creates an image for the by_date & by_file graph.  file is required
+//! --html                      creates a HTML file to help visualize the SVG output
+//! --table                     display as a table to stdout
+//! --ignore-weekends           ignore weekends when calculating # of commits
+//! --ignore-gap-fill           ignore filling empty dates with 0 commits
+//! -v, --verbose
+
 #[macro_use]
 extern crate log;
 extern crate anyhow;
@@ -22,7 +46,7 @@ mod grit_test;
 
 pub use crate::utils::grit_utils;
 
-use crate::by_date::ByDateArgs;
+use crate::by_date::{ByDate, ByDateArgs};
 use crate::by_file::ByFileArgs;
 use crate::chrono::TimeZone;
 use crate::effort::EffortArgs;
@@ -248,7 +272,8 @@ fn handle_fame(args: &ArgMatches) {
 }
 
 fn handle_bydate(args: &ArgMatches) {
-    let by_date_args = ByDateArgs::new(
+    let args = ByDateArgs::new(
+        String::from("."),
         parse_date_arg(args.value_of("start-date")),
         parse_date_arg(args.value_of("end-date")),
         convert_str_string(args.value_of("file")),
@@ -259,7 +284,9 @@ fn handle_bydate(args: &ArgMatches) {
         convert_str_string(args.value_of("restrict-author")),
     );
 
-    let _ = by_date::by_date(".", by_date_args);
+    let bd = ByDate::new(args);
+
+    bd.process().expect("Failed to proccess ByDate");
 }
 
 fn handle_byfile(args: &ArgMatches) {
