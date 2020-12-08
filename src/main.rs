@@ -15,7 +15,6 @@ mod by_date;
 mod by_file;
 mod effort;
 mod fame;
-mod fame_two;
 
 #[cfg(test)]
 #[macro_use]
@@ -27,7 +26,7 @@ use crate::by_date::ByDateArgs;
 use crate::by_file::ByFileArgs;
 use crate::chrono::TimeZone;
 use crate::effort::EffortArgs;
-use crate::fame::FameArgs;
+use crate::fame::{Fame, FameArgs};
 
 use anyhow::Result;
 use chrono::{Date, Local, NaiveDate};
@@ -243,8 +242,9 @@ fn handle_fame(args: &ArgMatches) {
         convert_str_string(args.value_of("exclude")),
         convert_str_string(args.value_of("restrict-author")),
     );
+    let fame = Fame::new(fame_args);
 
-    let _ = fame::process_fame(fame_args);
+    let _ = fame.process();
 }
 
 fn handle_bydate(args: &ArgMatches) {
