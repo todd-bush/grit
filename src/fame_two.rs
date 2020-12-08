@@ -336,7 +336,7 @@ impl Processable<()> for Fame {
             _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
         }
 
-        self.pretty_print_table(output, max_lines, max_files, max_commits);
+        self.pretty_print_table(output, max_lines, max_files, max_commits)?;
 
         Ok(())
     }
@@ -345,7 +345,10 @@ impl Processable<()> for Fame {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::NaiveDate;
+    use chrono::TimeZone;
     use log::LevelFilter;
+    use std::time::Instant;
     use tempfile::TempDir;
 
     const LOG_LEVEL: LevelFilter = LevelFilter::Info;
@@ -375,5 +378,152 @@ mod tests {
         };
 
         assert!(result, "test_process_file result was {}", result);
+    }
+
+    #[test]
+    fn test_process_fame_start_date() {
+        crate::grit_test::set_test_logging(LOG_LEVEL);
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+
+        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
+
+        let ed = Local.from_local_date(&utc_dt).single().unwrap();
+
+        let args = FameArgs::new(
+            path.to_string(),
+            Some("loc".to_string()),
+            Some(ed),
+            None,
+            None,
+            None,
+            None,
+        );
+
+        let fame = Fame::new(args);
+
+        let start = Instant::now();
+
+        let result = match fame.process() {
+            Ok(()) => true,
+            Err(_t) => false,
+        };
+
+        let duration = start.elapsed();
+
+        assert!(result, "test_process_fame_start_date result was {}", result);
+
+        println!("completed test_process_fame_start_date in {:?}", duration);
+    }
+
+    #[test]
+    fn test_process_fame_end_date() {
+        crate::grit_test::set_test_logging(LOG_LEVEL);
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+
+        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
+
+        let ed = Local.from_local_date(&utc_dt).single().unwrap();
+
+        let args = FameArgs::new(
+            path.to_string(),
+            Some("loc".to_string()),
+            None,
+            Some(ed),
+            None,
+            None,
+            None,
+        );
+
+        let fame = Fame::new(args);
+
+        let start = Instant::now();
+
+        let result = match fame.process() {
+            Ok(()) => true,
+            Err(_t) => false,
+        };
+
+        let duration = start.elapsed();
+
+        assert!(result, "test_process_fame_end_date result was {}", result);
+
+        println!("completed test_process_fame_end_date in {:?}", duration);
+    }
+
+    #[test]
+    fn test_process_fame_include() {
+        crate::grit_test::set_test_logging(LOG_LEVEL);
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+
+        let args = FameArgs::new(
+            path.to_string(),
+            Some("loc".to_string()),
+            None,
+            None,
+            Some("*.rs,*.md".to_string()),
+            None,
+            None,
+        );
+
+        let fame = Fame::new(args);
+
+        let start = Instant::now();
+
+        let result = match fame.process() {
+            Ok(()) => true,
+            Err(_t) => false,
+        };
+
+        let duration = start.elapsed();
+
+        assert!(result, "test_process_fame_include result was {}", result);
+
+        println!("completed test_process_fame_include in {:?}", duration);
+    }
+
+    #[test]
+    fn test_process_fame_restrict_author() {
+        crate::grit_test::set_test_logging(LOG_LEVEL);
+
+        let td: TempDir = crate::grit_test::init_repo();
+        let path = td.path().to_str().unwrap();
+
+        let args = FameArgs::new(
+            path.to_string(),
+            Some("loc".to_string()),
+            None,
+            None,
+            None,
+            None,
+            Some(String::from("todd-bush")),
+        );
+
+        let fame = Fame::new(args);
+
+        let start = Instant::now();
+
+        let result = match fame.process() {
+            Ok(()) => true,
+            Err(_t) => false,
+        };
+
+        let duration = start.elapsed();
+
+        assert!(
+            result,
+            "test_process_fame_restrict_author result was {}",
+            result
+        );
+
+        println!(
+            "completed test_process_fame_restrict_author in {:?}",
+            duration
+        );
     }
 }
