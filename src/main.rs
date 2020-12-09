@@ -47,7 +47,7 @@ mod grit_test;
 pub use crate::utils::grit_utils;
 
 use crate::by_date::{ByDate, ByDateArgs};
-use crate::by_file::ByFileArgs;
+use crate::by_file::{ByFile, ByFileArgs};
 use crate::chrono::TimeZone;
 use crate::effort::{Effort, EffortArgs};
 use crate::fame::{Fame, FameArgs};
@@ -290,7 +290,7 @@ fn handle_bydate(args: &ArgMatches) {
 }
 
 fn handle_byfile(args: &ArgMatches) {
-    let by_file_args = ByFileArgs::new(
+    let args = ByFileArgs::new(
         ".".to_string(),
         args.value_of("in-file").unwrap().to_string(),
         convert_str_string(args.value_of("file")),
@@ -298,8 +298,8 @@ fn handle_byfile(args: &ArgMatches) {
         args.is_present("html"),
         convert_str_string(args.value_of("restrict-author")),
     );
-
-    let _ = by_file::by_file(by_file_args);
+    let bf = ByFile::new(args);
+    bf.process().expect("Failed to process ByFile");
 }
 
 fn handle_effort(args: &ArgMatches) {
