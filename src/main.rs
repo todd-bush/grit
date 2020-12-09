@@ -49,7 +49,7 @@ pub use crate::utils::grit_utils;
 use crate::by_date::{ByDate, ByDateArgs};
 use crate::by_file::ByFileArgs;
 use crate::chrono::TimeZone;
-use crate::effort::EffortArgs;
+use crate::effort::{Effort, EffortArgs};
 use crate::fame::{Fame, FameArgs};
 
 use anyhow::Result;
@@ -313,7 +313,9 @@ fn handle_effort(args: &ArgMatches) {
         convert_str_string(args.value_of("restrict-author")),
     );
 
-    let _ = effort::effort(ea);
+    let effort = Effort::new(ea);
+
+    let _ = effort.process();
 }
 
 #[cfg(test)]
