@@ -246,17 +246,19 @@ fn main() {
 
     SimpleLogger::new().with_level(level).init().unwrap();
 
-    match matches.subcommand_name() {
+    let processasble = match matches.subcommand_name() {
         Some("fame") => handle_fame(matches.subcommand_matches("fame").unwrap()),
         Some("bydate") => handle_bydate(matches.subcommand_matches("bydate").unwrap()),
         Some("byfile") => handle_byfile(matches.subcommand_matches("byfile").unwrap()),
         Some("effort") => handle_effort(matches.subcommand_matches("effort").unwrap()),
-        Some(_) => error!("Unknown command was given"),
-        None => error!("No command was given"),
-    }
+        Some(_) => panic!("Unknown command was given"),
+        None => panic!("No command was given"),
+    };
+
+    processasble.process().expect("Could not complete process");
 }
 
-fn handle_fame(args: &ArgMatches) {
+fn handle_fame(args: &ArgMatches) -> Box<dyn Processable<()>> {
     let fame_args = FameArgs::new(
         String::from("."),
         convert_str_string(args.value_of("sort")),
@@ -266,12 +268,11 @@ fn handle_fame(args: &ArgMatches) {
         convert_str_string(args.value_of("exclude")),
         convert_str_string(args.value_of("restrict-author")),
     );
-    let fame = Fame::new(fame_args);
 
-    let _ = fame.process();
+    Box::new(Fame::new(fame_args))
 }
 
-fn handle_bydate(args: &ArgMatches) {
+fn handle_bydate(args: &ArgMatches) -> Box<dyn Processable<()>> {
     let args = ByDateArgs::new(
         String::from("."),
         parse_date_arg(args.value_of("start-date")),
@@ -284,12 +285,10 @@ fn handle_bydate(args: &ArgMatches) {
         convert_str_string(args.value_of("restrict-author")),
     );
 
-    let bd = ByDate::new(args);
-
-    bd.process().expect("Failed to proccess ByDate");
+    Box::new(ByDate::new(args))
 }
 
-fn handle_byfile(args: &ArgMatches) {
+fn handle_byfile(args: &ArgMatches) -> Box<dyn Processable<()>> {
     let args = ByFileArgs::new(
         ".".to_string(),
         args.value_of("in-file").unwrap().to_string(),
@@ -298,11 +297,11 @@ fn handle_byfile(args: &ArgMatches) {
         args.is_present("html"),
         convert_str_string(args.value_of("restrict-author")),
     );
-    let bf = ByFile::new(args);
-    bf.process().expect("Failed to process ByFile");
+
+    Box::new(ByFile::new(args))
 }
 
-fn handle_effort(args: &ArgMatches) {
+fn handle_effort(args: &ArgMatches) -> Box<dyn Processable<()>> {
     let ea = EffortArgs::new(
         ".".to_string(),
         parse_date_arg(args.value_of("start-date")),
@@ -313,9 +312,7 @@ fn handle_effort(args: &ArgMatches) {
         convert_str_string(args.value_of("restrict-author")),
     );
 
-    let effort = Effort::new(ea);
-
-    let _ = effort.process();
+    Box::new(Effort::new(ea))
 }
 
 #[cfg(test)]
