@@ -134,7 +134,7 @@ impl EffortProcessor {
     }
 }
 
-struct Effort {
+pub struct Effort {
     args: EffortArgs,
 }
 
