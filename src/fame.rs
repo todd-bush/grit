@@ -141,12 +141,9 @@ impl BlameProcessor {
             let sig = hunk.final_signature();
             let signame = String::from_utf8_lossy(sig.name_bytes()).to_string();
             let f_commit = hunk.final_commit_id().to_string();
-            let mut blame_key = String::with_capacity(300);
-            blame_key.push_str(&signame);
-            blame_key.push_str("-");
-            blame_key.push_str(&f_commit);
+            let blame_key = &[&signame, "-", &f_commit].join("");
 
-            let v = match blame_map.entry(blame_key) {
+            let v = match blame_map.entry(blame_key.to_string()) {
                 Vacant(entry) => entry.insert(BlameOutput::new(signame, f_commit)),
                 Occupied(entry) => entry.into_mut(),
             };
