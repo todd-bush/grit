@@ -7,7 +7,7 @@ use git2::{BlameOptions, Oid, Repository};
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use tokio::runtime;
@@ -67,8 +67,8 @@ struct FameOutputLine {
     author: String,
     lines: i32,
     file_count: usize,
-    filenames: Vec<String>,
-    commits: Vec<String>,
+    filenames: HashSet<String>,
+    commits: HashSet<String>,
     commits_count: i32,
     perc_lines: f64,
     perc_files: f64,
@@ -80,9 +80,9 @@ impl FameOutputLine {
         FameOutputLine {
             author: String::new(),
             lines: 0,
-            commits: Vec::new(),
+            commits: HashSet::new(),
             file_count: 0,
-            filenames: Vec::new(),
+            filenames: HashSet::new(),
             commits_count: 0,
             perc_files: 0.0,
             perc_lines: 0.0,
@@ -135,30 +135,23 @@ impl BlameProcessor {
 
         let blame = repo.blame_file(file_path, Some(&mut bo))?;
 
-        let mut blame_map: HashMap<BlameOutput, i32> = HashMap::new();
+        let mut blame_map: HashMap<String, BlameOutput> = HashMap::new();
 
         for hunk in blame.iter() {
             let sig = hunk.final_signature();
-            let signame = String::from_utf8_lossy(sig.name_bytes());
-            let file_blame =
-                BlameOutput::new(signame.to_string(), hunk.final_commit_id().to_string());
+            let signame = String::from_utf8_lossy(sig.name_bytes()).to_string();
+            let f_commit = hunk.final_commit_id().to_string();
+            let blame_key = &[&signame, "-", &f_commit].join("");
 
-            let v = match blame_map.entry(file_blame) {
-                Vacant(entry) => entry.insert(0),
+            let v = match blame_map.entry(blame_key.to_string()) {
+                Vacant(entry) => entry.insert(BlameOutput::new(signame, f_commit)),
                 Occupied(entry) => entry.into_mut(),
             };
 
-            *v += hunk.lines_in_hunk() as i32;
+            v.lines += hunk.lines_in_hunk() as i32;
         }
 
-        let result: Vec<BlameOutput> = blame_map
-            .iter()
-            .map(|(k, v)| {
-                let mut key = k.clone();
-                key.lines = *v;
-                key
-            })
-            .collect();
+        let result: Vec<BlameOutput> = blame_map.values().cloned().collect();
 
         Ok(result)
     }
@@ -285,7 +278,7 @@ impl Processable<()> for Fame {
 
         let mut max_lines = 0;
         let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
-        let mut total_commits: Vec<String> = Vec::new();
+        let mut total_commits: HashSet<String> = HashSet::new();
 
         let max_files = arc_per_file
             .read()
@@ -310,16 +303,14 @@ impl Processable<()> for Fame {
                     Occupied(entry) => entry.into_mut(),
                 };
 
-                om.commits.push(v.commit_id.clone());
-                total_commits.push(v.commit_id.clone());
-                om.filenames.push(key.clone());
+                om.commits.insert(v.commit_id.clone());
+                total_commits.insert(v.commit_id.clone());
+                om.filenames.insert(key.clone());
                 om.lines += v.lines;
                 max_lines += v.lines;
             }
         }
 
-        total_commits.sort();
-        total_commits.dedup();
         let max_commits = total_commits.len();
 
         info!(
@@ -330,11 +321,7 @@ impl Processable<()> for Fame {
         let mut output: Vec<FameOutputLine> = output_map
             .iter_mut()
             .map(|(key, val)| {
-                val.commits.sort();
-                val.commits.dedup();
                 val.commits_count = val.commits.len() as i32;
-                val.filenames.sort();
-                val.filenames.dedup();
                 val.file_count = val.filenames.len();
                 val.author = String::from(key);
                 val.perc_files = (val.file_count) as f64 / (max_files) as f64;

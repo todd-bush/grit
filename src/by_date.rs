@@ -116,7 +116,7 @@ impl ByDate {
         let end_date_sec = end_date.naive_local().and_hms(23, 59, 59).timestamp();
         let start_date_sec = start_date.naive_local().and_hms(0, 0, 0).timestamp();
 
-        let mut output_map: HashMap<Date<Local>, i32> = HashMap::new();
+        let mut output_map: HashMap<Date<Local>, ByDateOutput> = HashMap::new();
 
         let repo = Repository::open(&self.args.path).expect(format_tostr!(
             "Could not open repo for path {}",
@@ -166,17 +166,14 @@ impl ByDate {
             let dt = grit_utils::convert_git_time(commit_time);
 
             let v = match output_map.entry(dt) {
-                Vacant(entry) => entry.insert(0),
+                Vacant(entry) => entry.insert(ByDateOutput::new(dt, 0)),
                 Occupied(entry) => entry.into_mut(),
             };
 
-            *v += 1;
+            v.count += 1;
         }
 
-        let mut output: Vec<ByDateOutput> = output_map
-            .iter()
-            .map(|(key, val)| ByDateOutput::new(*key, *val))
-            .collect();
+        let mut output: Vec<ByDateOutput> = output_map.values().cloned().collect();
 
         output.sort();
 

@@ -183,7 +183,7 @@ impl Processable<()> for ByFile {
 
         let path = Path::new(&self.args.full_path_filename);
 
-        let mut auth_to_loc: HashMap<ByFileOutput, i32> = HashMap::new();
+        let mut auth_to_loc: HashMap<String, ByFileOutput> = HashMap::new();
 
         let restrict_authors: Option<Vec<String>> =
             grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
@@ -202,23 +202,19 @@ impl Processable<()> for ByFile {
                 }
             }
 
-            let key = ByFileOutput::new(signame, commit_date);
+            let commit_date_str = grit_utils::format_date(commit_date);
 
-            let v = match auth_to_loc.entry(key) {
-                Vacant(entry) => entry.insert(0),
+            let key = &[&signame, "-", &commit_date_str].join("");
+
+            let v = match auth_to_loc.entry(key.to_string()) {
+                Vacant(entry) => entry.insert(ByFileOutput::new(signame, commit_date)),
                 Occupied(entry) => entry.into_mut(),
             };
-            *v += hunk.lines_in_hunk() as i32;
+
+            v.loc += hunk.lines_in_hunk() as i32;
         }
 
-        let mut results: Vec<ByFileOutput> = auth_to_loc
-            .iter()
-            .map(|(k, v)| {
-                let mut r = k.clone();
-                r.loc = *v;
-                r
-            })
-            .collect();
+        let mut results: Vec<ByFileOutput> = auth_to_loc.values().cloned().collect();
 
         results.sort_by(|a, b| b.day.cmp(&a.day));
 
