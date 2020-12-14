@@ -48,12 +48,11 @@ pub use crate::utils::grit_utils;
 
 use crate::by_date::{ByDate, ByDateArgs};
 use crate::by_file::{ByFile, ByFileArgs};
-use crate::chrono::TimeZone;
 use crate::effort::{Effort, EffortArgs};
 use crate::fame::{Fame, FameArgs};
 
 use anyhow::Result;
-use chrono::{Date, Local, NaiveDate};
+use chrono::{Date, Local, NaiveDate, TimeZone};
 use clap::{App, Arg, ArgMatches};
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
