@@ -50,14 +50,16 @@ struct BlameOutput {
     author: String,
     commit_id: String,
     lines: i32,
+    file_name: String,
 }
 
 impl BlameOutput {
-    fn new(author: String, commit_id: String) -> BlameOutput {
+    fn new(author: String, commit_id: String, file_name: String) -> BlameOutput {
         BlameOutput {
             author: author,
             commit_id: commit_id,
             lines: 0,
+            file_name: file_name,
         }
     }
 }
@@ -144,7 +146,9 @@ impl BlameProcessor {
             let blame_key = &[&signame, "-", &f_commit].join("");
 
             let v = match blame_map.entry(blame_key.to_string()) {
-                Vacant(entry) => entry.insert(BlameOutput::new(signame, f_commit)),
+                Vacant(entry) => {
+                    entry.insert(BlameOutput::new(signame, f_commit, file_name.clone()))
+                }
                 Occupied(entry) => entry.into_mut(),
             };
 
@@ -225,8 +229,6 @@ impl Processable<()> for Fame {
             self.args.exclude.clone(),
         )?;
 
-        let per_file: HashMap<String, Vec<BlameOutput>> = HashMap::new();
-        let arc_per_file = Arc::new(RwLock::new(per_file));
         let bp = BlameProcessor::new(
             self.args.path.clone(),
             earliest_commit.clone(),
@@ -247,68 +249,60 @@ impl Processable<()> for Fame {
         for file_name in file_names.iter() {
             let file_name = file_name.clone();
             let bp = bp.clone();
-            let arc_per_file_c = arc_per_file.clone();
             let arc_pgb_c = arc_pgb.clone();
 
             info!("processing file {}", file_name);
             tasks.push(rt.spawn(async move {
-                bp.process(String::from(file_name.clone()))
+                bp.process(String::from(&file_name))
                     .await
                     .map(|pr| {
                         &arc_pgb_c
                             .write()
                             .expect("cannot open progress bar for write")
                             .inc(1);
-                        &arc_per_file_c
-                            .write()
-                            .expect("Cannot open shared per_file map")
-                            .insert(String::from(file_name.clone()), (*pr).to_vec());
                         pr
                     })
                     .map_err(|err| error!("Error in processing file: {}", err))
             }));
         }
 
-        rt.block_on(join_all(tasks));
+        let jh_results = rt.block_on(join_all(tasks));
 
         arc_pgb
             .write()
             .expect("cannot open progress bar for write")
             .finish();
 
+        let collector: Vec<Vec<BlameOutput>> = jh_results
+            .into_iter()
+            .map(|jh| jh.unwrap().unwrap().clone())
+            .collect();
+
+        let max_files = collector.len();
+
+        let blame_outputs: Vec<BlameOutput> = collector.into_iter().flatten().collect();
+
         let mut max_lines = 0;
         let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
         let mut total_commits: HashSet<String> = HashSet::new();
 
-        let max_files = arc_per_file
-            .read()
-            .expect("Cannot open per_file map for read")
-            .keys()
-            .len();
-
-        for (key, value) in arc_per_file
-            .read()
-            .expect("Cannot open per_file map for read")
-            .iter()
-        {
-            for v in value.iter() {
-                if let Some(ra) = &restrict_authors {
-                    if ra.contains(&v.author) {
-                        break;
-                    }
+        for v in blame_outputs.iter() {
+            if let Some(ra) = &restrict_authors {
+                if ra.contains(&v.author) {
+                    break;
                 }
-
-                let om = match output_map.entry(v.author.clone()) {
-                    Vacant(entry) => entry.insert(FameOutputLine::new()),
-                    Occupied(entry) => entry.into_mut(),
-                };
-
-                om.commits.insert(v.commit_id.clone());
-                total_commits.insert(v.commit_id.clone());
-                om.filenames.insert(key.clone());
-                om.lines += v.lines;
-                max_lines += v.lines;
             }
+
+            let om = match output_map.entry(v.author.clone()) {
+                Vacant(entry) => entry.insert(FameOutputLine::new()),
+                Occupied(entry) => entry.into_mut(),
+            };
+
+            om.commits.insert(v.commit_id.clone());
+            total_commits.insert(v.commit_id.clone());
+            om.filenames.insert(v.file_name.clone());
+            om.lines += v.lines;
+            max_lines += v.lines;
         }
 
         let max_commits = total_commits.len();
@@ -346,9 +340,9 @@ impl Processable<()> for Fame {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::NaiveDate;
-    use chrono::TimeZone;
+    use chrono::{Duration, NaiveDate, TimeZone};
     use log::LevelFilter;
+    use std::ops::Add;
     use std::time::Instant;
     use tempfile::TempDir;
 
@@ -425,9 +419,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
-
-        let ed = Local.from_local_date(&utc_dt).single().unwrap();
+        let ed = Local::now().add(Duration::days(-30)).date();
 
         let args = FameArgs::new(
             path.to_string(),
