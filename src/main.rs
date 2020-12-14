@@ -134,8 +134,14 @@ fn main() {
         .takes_value(true)
         .long("restrict-author");
 
-    let arg_debug = Arg::new("debug").about("enables debug logging").short('d');
-    let arg_verbose = Arg::new("verbose").about("enables info logging").short('v');
+    let arg_debug = Arg::new("debug")
+        .about("enables debug logging")
+        .takes_value(false)
+        .short('d');
+    let arg_verbose = Arg::new("verbose")
+        .about("enables info logging")
+        .takes_value(false)
+        .short('v');
 
     let arg_file = Arg::new("file").about("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg").takes_value(true).long("file").validator(is_svg);
 
@@ -235,16 +241,6 @@ fn main() {
         )
         .get_matches();
 
-    let level = if matches.is_present("debug") {
-        LevelFilter::Debug
-    } else if matches.is_present("verbose") {
-        LevelFilter::Info
-    } else {
-        LevelFilter::Error
-    };
-
-    SimpleLogger::new().with_level(level).init().unwrap();
-
     let processasble = match matches.subcommand_name() {
         Some("fame") => handle_fame(matches.subcommand_matches("fame").unwrap()),
         Some("bydate") => handle_bydate(matches.subcommand_matches("bydate").unwrap()),
@@ -258,6 +254,7 @@ fn main() {
 }
 
 fn handle_fame(args: &ArgMatches) -> Box<dyn Processable<()>> {
+    set_logging(args.is_present("debug"), args.is_present("verbose"));
     let fame_args = FameArgs::new(
         String::from("."),
         convert_str_string(args.value_of("sort")),
@@ -272,6 +269,7 @@ fn handle_fame(args: &ArgMatches) -> Box<dyn Processable<()>> {
 }
 
 fn handle_bydate(args: &ArgMatches) -> Box<dyn Processable<()>> {
+    set_logging(args.is_present("debug"), args.is_present("verbose"));
     let args = ByDateArgs::new(
         String::from("."),
         parse_date_arg(args.value_of("start-date")),
@@ -288,6 +286,7 @@ fn handle_bydate(args: &ArgMatches) -> Box<dyn Processable<()>> {
 }
 
 fn handle_byfile(args: &ArgMatches) -> Box<dyn Processable<()>> {
+    set_logging(args.is_present("debug"), args.is_present("verbose"));
     let args = ByFileArgs::new(
         ".".to_string(),
         args.value_of("in-file").unwrap().to_string(),
@@ -301,6 +300,7 @@ fn handle_byfile(args: &ArgMatches) -> Box<dyn Processable<()>> {
 }
 
 fn handle_effort(args: &ArgMatches) -> Box<dyn Processable<()>> {
+    set_logging(args.is_present("debug"), args.is_present("verbose"));
     let ea = EffortArgs::new(
         ".".to_string(),
         parse_date_arg(args.value_of("start-date")),
@@ -312,6 +312,18 @@ fn handle_effort(args: &ArgMatches) -> Box<dyn Processable<()>> {
     );
 
     Box::new(Effort::new(ea))
+}
+
+fn set_logging(debug: bool, verbose: bool) {
+    let level = if debug {
+        LevelFilter::Debug
+    } else if verbose {
+        LevelFilter::Info
+    } else {
+        LevelFilter::Error
+    };
+
+    SimpleLogger::new().with_level(level).init().unwrap();
 }
 
 #[cfg(test)]

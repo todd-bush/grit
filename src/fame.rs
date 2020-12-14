@@ -10,6 +10,7 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 use tokio::runtime;
 use tokio::task::JoinHandle;
 
@@ -120,6 +121,7 @@ impl BlameProcessor {
     async fn process(&self, file_name: String) -> Result<Vec<BlameOutput>> {
         let repo = Repository::open(&self.path)?;
         let file_path = Path::new(&file_name);
+        let start = Instant::now();
 
         let mut bo = BlameOptions::new();
 
@@ -156,6 +158,8 @@ impl BlameProcessor {
         }
 
         let result: Vec<BlameOutput> = blame_map.values().cloned().collect();
+
+        info!("Processed {} in {:?}", &file_name, start.elapsed());
 
         Ok(result)
     }
@@ -343,7 +347,6 @@ mod tests {
     use chrono::{Duration, NaiveDate, TimeZone};
     use log::LevelFilter;
     use std::ops::Add;
-    use std::time::Instant;
     use tempfile::TempDir;
 
     const LOG_LEVEL: LevelFilter = LevelFilter::Info;
