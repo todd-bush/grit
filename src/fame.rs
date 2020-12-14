@@ -54,12 +54,12 @@ struct BlameOutput {
 }
 
 impl BlameOutput {
-    fn new(author: String, commit_id: String) -> BlameOutput {
+    fn new(author: String, commit_id: String, file_name: String) -> BlameOutput {
         BlameOutput {
             author: author,
             commit_id: commit_id,
             lines: 0,
-            file_name: String::new(),
+            file_name: file_name,
         }
     }
 }
@@ -146,7 +146,9 @@ impl BlameProcessor {
             let blame_key = &[&signame, "-", &f_commit].join("");
 
             let v = match blame_map.entry(blame_key.to_string()) {
-                Vacant(entry) => entry.insert(BlameOutput::new(signame, f_commit)),
+                Vacant(entry) => {
+                    entry.insert(BlameOutput::new(signame, f_commit, file_name.clone()))
+                }
                 Occupied(entry) => entry.into_mut(),
             };
 
@@ -251,10 +253,9 @@ impl Processable<()> for Fame {
 
             info!("processing file {}", file_name);
             tasks.push(rt.spawn(async move {
-                bp.process(String::from(file_name.clone()))
+                bp.process(String::from(&file_name))
                     .await
-                    .map(|mut pr| {
-                        pr.iter_mut().for_each(|p| p.file_name = file_name.clone());
+                    .map(|pr| {
                         &arc_pgb_c
                             .write()
                             .expect("cannot open progress bar for write")
