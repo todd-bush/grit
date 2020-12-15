@@ -95,14 +95,12 @@ impl EffortProcessor {
 
         if let Some(ev) = &self.earliest_commit {
             let oid: Oid = Oid::from_bytes(&ev)?;
-            let commit = repo.find_commit(oid)?;
-            bo.oldest_commit(commit.id());
+            bo.oldest_commit(oid);
         };
 
         if let Some(ov) = &self.latest_commit {
             let oid: Oid = Oid::from_bytes(&ov)?;
-            let commit = repo.find_commit(oid)?;
-            bo.newest_commit(commit.id());
+            bo.newest_commit(oid);
         };
 
         let mut effort_commits: HashSet<String> = HashSet::new();
