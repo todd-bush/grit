@@ -6,10 +6,12 @@ use chrono::Date;
 use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
+use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
 use std::collections::HashSet;
 use std::io;
 use std::path::Path;
+use std::sync::{Arc, RwLock};
 use tokio::runtime;
 use tokio::task::JoinHandle;
 
@@ -199,6 +201,9 @@ impl Processable<()> for Effort {
             restrict_authors,
         );
 
+        let pgb = ProgressBar::new(file_names.len() as u64);
+        let arc_pgb = Arc::new(RwLock::new(pgb));
+
         let mut rt = runtime::Builder::new()
             .threaded_scheduler()
             .thread_name("grit-effort-thread-runner")
@@ -209,10 +214,17 @@ impl Processable<()> for Effort {
 
         for file_name in file_names {
             let ep = ep.clone();
+            let arc_pgb_c = arc_pgb.clone();
             tasks.push(rt.spawn(async move {
                 ep.process_file(&file_name.clone())
                     .await
-                    .map(|e| e)
+                    .map(|e| {
+                        arc_pgb_c
+                            .write()
+                            .expect("cannot open ProgressBar to write")
+                            .inc(1);
+                        e
+                    })
                     .map_err(|err| {
                         error!("Error processing effort: {}", err);
                     })
@@ -220,6 +232,11 @@ impl Processable<()> for Effort {
         }
 
         let jh_results = rt.block_on(join_all(tasks));
+
+        arc_pgb
+            .write()
+            .expect("Cannot open ProgressBar to write")
+            .finish();
 
         let mut results: Vec<EffortOutput> = jh_results
             .into_iter()
