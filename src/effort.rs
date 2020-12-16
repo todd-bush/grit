@@ -178,7 +178,7 @@ impl Effort {
 impl Processable<()> for Effort {
     fn process(&self) -> Result<()> {
         let (earliest_commit, latest_commit) = grit_utils::find_commit_range(
-            self.args.path.clone(),
+            &self.args.path,
             self.args.start_date,
             self.args.end_date,
         )?;
