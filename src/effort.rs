@@ -95,14 +95,12 @@ impl EffortProcessor {
 
         if let Some(ev) = &self.earliest_commit {
             let oid: Oid = Oid::from_bytes(&ev)?;
-            let commit = repo.find_commit(oid)?;
-            bo.oldest_commit(commit.id());
+            bo.oldest_commit(oid);
         };
 
         if let Some(ov) = &self.latest_commit {
             let oid: Oid = Oid::from_bytes(&ov)?;
-            let commit = repo.find_commit(oid)?;
-            bo.newest_commit(commit.id());
+            bo.newest_commit(oid);
         };
 
         let mut effort_commits: HashSet<String> = HashSet::new();
@@ -180,7 +178,7 @@ impl Effort {
 impl Processable<()> for Effort {
     fn process(&self) -> Result<()> {
         let (earliest_commit, latest_commit) = grit_utils::find_commit_range(
-            self.args.path.clone(),
+            &self.args.path,
             self.args.start_date,
             self.args.end_date,
         )?;

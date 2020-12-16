@@ -44,20 +44,26 @@ pub mod grit_utils {
 
         let statuses = repo.statuses(Some(&mut status_opts))?;
 
-        let includes: Vec<Pattern> = match include {
-            Some(e) => e
-                .split(',')
-                .map(|s| Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s)))
-                .collect(),
-            None => Vec::new(),
+        let includes: Option<Vec<Pattern>> = match include {
+            Some(e) => Some(
+                e.split(',')
+                    .map(|s| {
+                        Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s))
+                    })
+                    .collect(),
+            ),
+            None => None,
         };
 
-        let excludes: Vec<Pattern> = match exclude {
-            Some(e) => e
-                .split(',')
-                .map(|s| Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s)))
-                .collect(),
-            None => Vec::new(),
+        let excludes: Option<Vec<Pattern>> = match exclude {
+            Some(e) => Some(
+                e.split(',')
+                    .map(|s| {
+                        Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s))
+                    })
+                    .collect(),
+            ),
+            None => None,
         };
 
         let file_names: Vec<String> = statuses
@@ -68,34 +74,23 @@ pub mod grit_utils {
                     .expect("Cannot create string from path")
                     .to_string();
                 let exclude_s = s.clone();
-                let mut result = None;
 
-                if includes.is_empty() {
-                    debug!("including {} to the file list", s);
-                    result = Some(s);
-                } else {
-                    for p in &includes {
-                        if p.matches(&s) {
-                            result = Some(
-                                se.path()
-                                    .expect("Cannot create string from path")
-                                    .to_string(),
-                            );
-                            break;
-                        };
-                    }
-                }
-
-                if !excludes.is_empty() && result.is_some() {
-                    for p in &excludes {
-                        if p.matches(&exclude_s) {
-                            result = None;
-                            debug!("removing {} from the file list", exclude_s);
-                            break;
+                let mut result = match &includes {
+                    Some(il) => {
+                        if il.iter().any(|p| p.matches(&s)) {
+                            Some(s)
+                        } else {
+                            None
                         }
                     }
-                }
+                    None => Some(s),
+                };
 
+                if let Some(el) = &excludes {
+                    if el.iter().any(|p| p.matches(&exclude_s)) {
+                        result = None;
+                    }
+                }
                 result
             })
             .collect();
@@ -160,17 +155,15 @@ pub mod grit_utils {
     }
 
     pub fn find_commit_range(
-        repo_path: String,
+        repo_path: &str,
         start_date: Option<Date<Local>>,
         end_date: Option<Date<Local>>,
     ) -> GenResult<(Option<Vec<u8>>, Option<Vec<u8>>)> {
         let mut earliest_commit = None;
         let mut latest_commit = None;
 
-        let repo = Repository::open(repo_path.clone()).expect(format_tostr!(
-            "Could not open repo for path {}",
-            repo_path.clone()
-        ));
+        let repo = Repository::open(repo_path)
+            .expect(format_tostr!("Could not open repo for path {}", repo_path));
 
         if let Some(d) = start_date {
             let start_date_sec = d.naive_local().and_hms(0, 0, 0).timestamp();
@@ -301,7 +294,7 @@ pub mod grit_utils {
             let td: TempDir = crate::grit_test::init_repo();
             let path = td.path().to_str().unwrap();
 
-            let (early, late) = find_commit_range(path.to_string(), None, None).unwrap();
+            let (early, late) = find_commit_range(path, None, None).unwrap();
 
             assert_eq!(early, None);
             assert_eq!(late, None);
@@ -313,7 +306,8 @@ pub mod grit_utils {
                 vec![String::from("1"), String::from("2"), String::from("3")];
 
             assert_eq!(convert_string_list_to_vec(None), None);
-            assert_eq!(convert_string_list_to_vec(Some(String::from("1,2,3"))),
+            assert_eq!(
+                convert_string_list_to_vec(Some(String::from("1,2,3"))),
                 Some(test_vec)
             );
         }
@@ -328,7 +322,7 @@ pub mod grit_utils {
             let td: TempDir = crate::grit_test::init_repo();
             let path = td.path().to_str().unwrap();
 
-            let (early, late) = find_commit_range(path.to_string(), Some(ed), None).unwrap();
+            let (early, late) = find_commit_range(path, Some(ed), None).unwrap();
 
             //info!("early = {:?}", early.unwrap());
 
