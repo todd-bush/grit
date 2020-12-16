@@ -138,6 +138,7 @@ fn main() {
         .about("enables debug logging")
         .takes_value(false)
         .short('d');
+        
     let arg_verbose = Arg::new("verbose")
         .about("enables info logging")
         .takes_value(false)
