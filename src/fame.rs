@@ -22,6 +22,7 @@ pub struct FameArgs {
     include: Option<String>,
     exclude: Option<String>,
     restrict_authors: Option<String>,
+    include_loc: bool,
 }
 
 impl FameArgs {
@@ -33,6 +34,7 @@ impl FameArgs {
         include: Option<String>,
         exclude: Option<String>,
         restrict_authors: Option<String>,
+        include_loc: bool,
     ) -> FameArgs {
         FameArgs {
             path: path,
@@ -42,6 +44,7 @@ impl FameArgs {
             include: include,
             exclude: exclude,
             restrict_authors: restrict_authors,
+            include_loc: include_loc,
         }
     }
 }
@@ -364,6 +367,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
 
         let f = Fame::new(args);
@@ -395,6 +399,7 @@ mod tests {
             None,
             None,
             None,
+            true,
         );
 
         let fame = Fame::new(args);
@@ -430,6 +435,7 @@ mod tests {
             None,
             None,
             None,
+            true,
         );
 
         let fame = Fame::new(args);
@@ -463,6 +469,7 @@ mod tests {
             Some("*.rs,*.md".to_string()),
             None,
             None,
+            true,
         );
 
         let fame = Fame::new(args);
@@ -496,6 +503,7 @@ mod tests {
             None,
             None,
             Some(String::from("todd-bush")),
+            false,
         );
 
         let fame = Fame::new(args);

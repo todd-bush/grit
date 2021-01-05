@@ -138,7 +138,6 @@ fn main() {
         .about("enables debug logging")
         .takes_value(false)
         .short('d');
-        
     let arg_verbose = Arg::new("verbose")
         .about("enables info logging")
         .takes_value(false)
@@ -165,6 +164,8 @@ fn main() {
                 arg_restrict_author.clone(),
                 arg_debug.clone(),
                 arg_verbose.clone(),
+                Arg::new("include-loc").about("Include LOC in output.  This may take significantly more time to compute.")
+                    .takes_value(false).long("include-loc")
             ]),
         )
         .subcommand(
@@ -264,6 +265,7 @@ fn handle_fame(args: &ArgMatches) -> Box<dyn Processable<()>> {
         convert_str_string(args.value_of("include")),
         convert_str_string(args.value_of("exclude")),
         convert_str_string(args.value_of("restrict-author")),
+        args.is_present("include-loc"),
     );
 
     Box::new(Fame::new(fame_args))
