@@ -73,9 +73,8 @@ pub mod grit_utils {
                     .path()
                     .expect("Cannot create string from path")
                     .to_string();
-                let exclude_s = s.clone();
 
-                let mut result = match &includes {
+                let result = match &includes {
                     Some(il) => {
                         if il.iter().any(|p| p.matches(&s)) {
                             Some(s)
@@ -85,12 +84,19 @@ pub mod grit_utils {
                     }
                     None => Some(s),
                 };
-
-                if let Some(el) = &excludes {
-                    if el.iter().any(|p| p.matches(&exclude_s)) {
-                        result = None;
+                result
+            })
+            .filter_map(|s| {
+                let result = if let Some(el) = &excludes {
+                    if el.iter().any(|p| p.matches(&s)) {
+                        None
+                    } else {
+                        Some(s)
                     }
-                }
+                } else {
+                    Some(s)
+                };
+
                 result
             })
             .collect();
@@ -226,6 +232,8 @@ pub mod grit_utils {
             crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, None, None).unwrap();
 
+            info!("include all {:?}", result);
+
             assert!(
                 result.len() >= 6,
                 "test_generate_file_list_all was {}",
@@ -238,8 +246,10 @@ pub mod grit_utils {
             crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, Some("*.rs".to_string()), None).unwrap();
 
+            info!("include *.rs {:?}", result);
+
             assert!(
-                result.len() >= 5,
+                result.iter().all(|s| s.ends_with(".rs")),
                 "test_generate_file_list_all was {}",
                 result.len()
             );
@@ -250,8 +260,10 @@ pub mod grit_utils {
             crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, None, Some("*.rs".to_string())).unwrap();
 
+            info!("excludes *.rs {:?}", result);
+
             assert!(
-                result.len() >= 3,
+                !result.iter().any(|s| s.ends_with(".rs")),
                 "test_generate_file_list_exclude_rust was {}",
                 result.len()
             );
