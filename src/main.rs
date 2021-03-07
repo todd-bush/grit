@@ -108,6 +108,14 @@ fn is_svg(val: &str) -> Result<(), String> {
     }
 }
 
+fn is_csv(val: &str) -> Result<(), String> {
+    if grit_utils::check_file_type(val, "csv") {
+        Ok(())
+    } else {
+        Err(String::from("the file format must be csv"))
+    }
+}
+
 fn main() {
     let arg_start_date = Arg::new("start-date")
         .about("start date in YYYY-MM-DD format")
@@ -147,6 +155,12 @@ fn main() {
         .about("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg")
         .takes_value(true).long("file").validator(is_svg);
 
+    let arg_cvs_file = Arg::new("file")
+        .about("output file for csv.  Must end in .csv")
+        .takes_value(true)
+        .long("file")
+        .validator(is_csv);
+
     let matches = App::new("Grit")
         .about("git repository analyzer")
         .author("Todd Bush")
@@ -165,7 +179,7 @@ fn main() {
                 arg_exclude.clone(),
                 arg_restrict_author.clone(),
                 Arg::new("csv").about("output to csv, stdout or file if file arg is present").takes_value(false).long("csv"),
-                arg_file.clone(),
+                arg_cvs_file.clone(),
                 arg_debug.clone(),
                 arg_verbose.clone(),
             ]),
