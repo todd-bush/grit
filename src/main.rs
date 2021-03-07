@@ -138,13 +138,14 @@ fn main() {
         .about("enables debug logging")
         .takes_value(false)
         .short('d');
-        
     let arg_verbose = Arg::new("verbose")
         .about("enables info logging")
         .takes_value(false)
         .short('v');
 
-    let arg_file = Arg::new("file").about("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg").takes_value(true).long("file").validator(is_svg);
+    let arg_file = Arg::new("file")
+        .about("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg")
+        .takes_value(true).long("file").validator(is_svg);
 
     let matches = App::new("Grit")
         .about("git repository analyzer")
@@ -163,6 +164,8 @@ fn main() {
                 arg_include.clone(),
                 arg_exclude.clone(),
                 arg_restrict_author.clone(),
+                Arg::new("csv").about("output to csv, stdout or file if file arg is present").takes_value(false).long("csv"),
+                arg_file.clone(),
                 arg_debug.clone(),
                 arg_verbose.clone(),
             ]),
@@ -264,6 +267,8 @@ fn handle_fame(args: &ArgMatches) -> Box<dyn Processable<()>> {
         convert_str_string(args.value_of("include")),
         convert_str_string(args.value_of("exclude")),
         convert_str_string(args.value_of("restrict-author")),
+        args.is_present("csv"),
+        convert_str_string(args.value_of("file")),
     );
 
     Box::new(Fame::new(fame_args))

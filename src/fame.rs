@@ -2,12 +2,17 @@ use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
 use chrono::{Date, Local};
+use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
 use indicatif::ProgressBar;
 use prettytable::{cell, format, row, Table};
+use std::boxed::Box;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
+use std::fs::File;
+use std::io;
+use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
@@ -22,6 +27,8 @@ pub struct FameArgs {
     include: Option<String>,
     exclude: Option<String>,
     restrict_authors: Option<String>,
+    csv: bool,
+    file: Option<String>,
 }
 
 impl FameArgs {
@@ -33,6 +40,8 @@ impl FameArgs {
         include: Option<String>,
         exclude: Option<String>,
         restrict_authors: Option<String>,
+        csv: bool,
+        file: Option<String>,
     ) -> FameArgs {
         FameArgs {
             path: path,
@@ -42,6 +51,8 @@ impl FameArgs {
             include: include,
             exclude: exclude,
             restrict_authors: restrict_authors,
+            csv: csv,
+            file: file,
         }
     }
 }
@@ -210,6 +221,50 @@ impl Fame {
 
         Ok(())
     }
+
+    fn csv_output(&self, output: Vec<FameOutputLine>, file_name: Option<String>) -> Result<()> {
+        let w = match file_name {
+            Some(f) => {
+                let file = File::create(f)?;
+                Box::new(file) as Box<dyn Write>
+            }
+            None => Box::new(io::stdout()) as Box<dyn Write>,
+        };
+
+        let mut wrt = Writer::from_writer(w);
+
+        wrt.write_record(&[
+            "Author",
+            "Files",
+            "Commits",
+            "LOC",
+            "Distribution (%) - Files",
+            "Distribution (%) - Commits",
+            "Distribution (%) - LoC",
+        ])
+        .expect("Cannot write header row");
+
+        output.iter().for_each(|r| {
+            let pf = format!("{:.1}", r.perc_files * 100.0);
+            let pc = format!("{:.1}", r.perc_commits * 100.0);
+            let pl = format!("{:.1}", r.perc_lines * 100.0);
+
+            wrt.serialize([
+                r.author.clone(),
+                r.file_count.to_string(),
+                r.commits_count.to_string(),
+                r.lines.to_string(),
+                pf,
+                pc,
+                pl,
+            ])
+            .expect("Could not write CSV row");
+        });
+
+        wrt.flush().expect("Cannot flush CVS buffer");
+
+        Ok(())
+    }
 }
 
 impl Processable<()> for Fame {
@@ -333,7 +388,11 @@ impl Processable<()> for Fame {
             _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
         }
 
-        self.pretty_print_table(output, max_lines, max_files, max_commits)?;
+        if self.args.csv {
+            self.csv_output(output, self.args.file.clone())?;
+        } else {
+            self.pretty_print_table(output, max_lines, max_files, max_commits)?;
+        }
 
         Ok(())
     }
@@ -363,6 +422,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            false,
             None,
         );
 
@@ -394,6 +455,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            false,
             None,
         );
 
@@ -430,6 +493,8 @@ mod tests {
             None,
             None,
             None,
+            true,
+            None,
         );
 
         let fame = Fame::new(args);
@@ -462,6 +527,8 @@ mod tests {
             None,
             Some("*.rs,*.md".to_string()),
             None,
+            None,
+            true,
             None,
         );
 
@@ -496,6 +563,8 @@ mod tests {
             None,
             None,
             Some(String::from("todd-bush")),
+            false,
+            None,
         );
 
         let fame = Fame::new(args);
