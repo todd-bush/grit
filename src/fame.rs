@@ -27,6 +27,8 @@ pub struct FameArgs {
     include: Option<String>,
     exclude: Option<String>,
     restrict_authors: Option<String>,
+    csv: bool,
+    file: Option<String>,
 }
 
 impl FameArgs {
@@ -38,6 +40,8 @@ impl FameArgs {
         include: Option<String>,
         exclude: Option<String>,
         restrict_authors: Option<String>,
+        csv: bool,
+        file: Option<String>,
     ) -> FameArgs {
         FameArgs {
             path: path,
@@ -47,6 +51,8 @@ impl FameArgs {
             include: include,
             exclude: exclude,
             restrict_authors: restrict_authors,
+            csv: csv,
+            file: file,
         }
     }
 }
@@ -382,7 +388,11 @@ impl Processable<()> for Fame {
             _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
         }
 
-        self.pretty_print_table(output, max_lines, max_files, max_commits)?;
+        if self.args.csv {
+            self.csv_output(output, self.args.file.clone())?;
+        } else {
+            self.pretty_print_table(output, max_lines, max_files, max_commits)?;
+        }
 
         Ok(())
     }
@@ -412,6 +422,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            false,
             None,
         );
 
@@ -443,6 +455,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            false,
             None,
         );
 
@@ -479,6 +493,8 @@ mod tests {
             None,
             None,
             None,
+            true,
+            None,
         );
 
         let fame = Fame::new(args);
@@ -511,6 +527,8 @@ mod tests {
             None,
             Some("*.rs,*.md".to_string()),
             None,
+            None,
+            true,
             None,
         );
 
@@ -545,6 +563,8 @@ mod tests {
             None,
             None,
             Some(String::from("todd-bush")),
+            false,
+            None,
         );
 
         let fame = Fame::new(args);
