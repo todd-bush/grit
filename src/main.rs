@@ -267,7 +267,7 @@ fn handle_fame(args: &ArgMatches) -> Box<dyn Processable<()>> {
         convert_str_string(args.value_of("include")),
         convert_str_string(args.value_of("exclude")),
         convert_str_string(args.value_of("restrict-author")),
-        args.is_present("cvs"),
+        args.is_present("csv"),
         convert_str_string(args.value_of("file")),
     );
 
