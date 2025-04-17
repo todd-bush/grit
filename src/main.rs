@@ -118,58 +118,58 @@ fn is_csv(val: &str) -> Result<(), String> {
 
 fn main() {
     let arg_start_date = Arg::new("start-date")
-        .about("start date in YYYY-MM-DD format")
+        .help("start date in YYYY-MM-DD format")
         .takes_value(true)
         .long("start-date");
 
     let arg_end_date = Arg::new("end-date")
-        .about("end date in YYYY-MM-DD format")
+        .help("end date in YYYY-MM-DD format")
         .takes_value(true)
         .long("end-date");
 
     let arg_include = Arg::new("include")
-        .about("comma delimited, glob file path to include path1/*,path2/*")
+        .help("comma delimited, glob file path to include path1/*,path2/*")
         .takes_value(true)
         .long("include");
 
     let arg_exclude = Arg::new("exclude")
-        .about("comma delimited, glob file path to exclude path1/*,path2/*")
+        .help("comma delimited, glob file path to exclude path1/*,path2/*")
         .takes_value(true)
         .long("exclude");
 
     let arg_restrict_author = Arg::new("restrict-author")
-        .about("comma delimited of author's names to restrict")
+        .help("comma delimited of author's names to restrict")
         .takes_value(true)
         .long("restrict-author");
 
     let arg_debug = Arg::new("debug")
-        .about("enables debug logging")
+        .help("enables debug logging")
         .takes_value(false)
         .short('d');
     let arg_verbose = Arg::new("verbose")
-        .about("enables info logging")
+        .help("enables info logging")
         .takes_value(false)
         .short('v');
 
     let arg_file = Arg::new("file")
-        .about("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg")
+        .help("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg")
         .takes_value(true).long("file").validator(is_svg);
 
     let arg_cvs_file = Arg::new("file")
-        .about("output file for csv.  Must end in .csv")
+        .help("output file for csv.  Must end in .csv")
         .takes_value(true)
         .long("file")
         .validator(is_csv);
 
     let matches = App::new("Grit")
-        .about("git repository analyzer")
+        .help("git repository analyzer")
         .author("Todd Bush")
         .subcommand(
             App::new("fame")
-            .about("will create a table of metrics per author.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
+            .help("will create a table of metrics per author.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
             .args(&[
                 Arg::new("sort")
-                    .about("sort field, either 'commit', 'loc', 'files")
+                    .help("sort field, either 'commit', 'loc', 'files")
                     .takes_value(true)
                     .default_value("commit")
                     .long("sort"),
@@ -178,7 +178,7 @@ fn main() {
                 arg_include.clone(),
                 arg_exclude.clone(),
                 arg_restrict_author.clone(),
-                Arg::new("csv").about("output to csv, stdout or file if file arg is present").takes_value(false).long("csv"),
+                Arg::new("csv").help("output to csv, stdout or file if file arg is present").takes_value(false).long("csv"),
                 arg_cvs_file.clone(),
                 arg_debug.clone(),
                 arg_verbose.clone(),
@@ -186,27 +186,27 @@ fn main() {
         )
         .subcommand(
             App::new("bydate")
-            .about("will create a csv of date and commit count to stdout or file.  Option to produce a SVG image.")
+            .help("will create a csv of date and commit count to stdout or file.  Option to produce a SVG image.")
             .args(&[
                 arg_start_date.clone(),
                 arg_end_date.clone(),
                 arg_file.clone(),
                 Arg::new("image")
-                    .about("creates an image for the graph.  file is required")
+                    .help("creates an image for the graph.  file is required")
                     .requires("file")
                     .takes_value(false)
                     .long("image"),
                 Arg::new("html")
-                    .about("creates a HTML file to help visualize the SVG output")
+                    .help("creates a HTML file to help visualize the SVG output")
                     .requires("image")
                     .takes_value(false)
                     .long("html"),
                 Arg::new("ignore-weekends")
-                    .about("ignore weekends when calculating # of commits")
+                    .help("ignore weekends when calculating # of commits")
                     .takes_value(false)
                     .long("ignore-weekends"),
                 Arg::new("ignore-gap-fill")
-                    .about("ignore filling empty dates with 0 commits")
+                    .help("ignore filling empty dates with 0 commits")
                     .takes_value(false)
                     .long("ignore-gap-fill"),
                 arg_restrict_author.clone(),
@@ -216,21 +216,21 @@ fn main() {
         )
         .subcommand(
             App::new("byfile")
-            .about("will create a csv of author, date, and commit counts to stdout or file.  Option to produce a SVG image.")
+            .help("will create a csv of author, date, and commit counts to stdout or file.  Option to produce a SVG image.")
             .args(&[
                 Arg::new("in-file")
-                    .about("input file")
+                    .help("input file")
                     .takes_value(true)
                     .required(true)
                     .long("in-file"),
                 arg_file.clone(),
                 Arg::new("image")
-                    .about("creates an image for the graph.  file is required")
+                    .help("creates an image for the graph.  file is required")
                     .requires("file")
                     .takes_value(false)
                     .long("image"),
                 Arg::new("html")
-                    .about("creates a HTML file to help visualize the SVG output")
+                    .help("creates a HTML file to help visualize the SVG output")
                     .requires("image")
                     .takes_value(false)
                     .long("html"),
@@ -241,7 +241,7 @@ fn main() {
         )
         .subcommand(
             App::new("effort")
-            .about("will output the # of commits and # of active dates for each file.  Default is CSV, option for a table.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
+            .help("will output the # of commits and # of active dates for each file.  Default is CSV, option for a table.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
             .args(&[
                 arg_start_date.clone(),
                 arg_end_date.clone(),
@@ -252,7 +252,7 @@ fn main() {
                 arg_verbose.clone(),
                 arg_restrict_author.clone(),
                 Arg::new("table")
-                    .about("display as a table to stdout")
+                    .help("display as a table to stdout")
                     .takes_value(false)
                     .long("table"),
             ]),
