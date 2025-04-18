@@ -14,3 +14,7 @@ to_file.html
 
 # logs
 *.log
+
+*.svg
+*.code-workspace
+.vscode/

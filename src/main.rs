@@ -7,7 +7,7 @@
 //!
 //! Options:
 //! --debug                     enables debug
-//! -h, --help                  displays help
+//! -h, --about                  displays about
 //! --sort=<field>              sort field, either 'commit' (default), 'loc', 'files'
 //! --start-date=<string>       start date in YYYY-MM-DD format.
 //! --end-date=<string>         end date in YYYY-MM-DD format.
@@ -16,7 +16,7 @@
 //! --file=<string>             output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg
 //! --in-file=<string>          input file for by_file
 //! --image                     creates an image for the by_date & by_file graph.  file is required
-//! --html                      creates a HTML file to help visualize the SVG output
+//! --html                      creates a HTML file to about visualize the SVG output
 //! --table                     display as a table to stdout
 //! --ignore-weekends           ignore weekends when calculating # of commits
 //! --ignore-gap-fill           ignore filling empty dates with 0 commits
@@ -52,8 +52,8 @@ use crate::effort::{Effort, EffortArgs};
 use crate::fame::{Fame, FameArgs};
 
 use anyhow::Result;
-use chrono::{Date, Local, NaiveDate, TimeZone};
-use clap::{App, Arg, ArgMatches};
+use chrono::{DateTime, Local, NaiveDate, TimeZone};
+use clap::{Arg, ArgMatches, Command};
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
 use std::str;
@@ -64,22 +64,22 @@ pub trait Processable<T> {
     fn process(&self) -> Result<T>;
 }
 
-fn parse_datelocal(date_string: &str) -> Result<Date<Local>> {
-    let utc_dt = NaiveDate::parse_from_str(date_string, "%Y-%m-%d");
+fn parse_datelocal(date_string: String) -> Result<DateTime<Local>> {
+    let utc_dt = NaiveDate::parse_from_str(date_string.as_str(), "%Y-%m-%d");
 
     match utc_dt {
-        Ok(d) => Ok(Local
-            .from_local_date(&d)
-            .single()
-            .expect("Cannot unwrap date")),
+        Ok(d) => {
+            let naive_dt = d.and_hms_opt(0, 0, 0).unwrap();
+            Ok(Local.from_local_datetime(&naive_dt).unwrap())
+        }
         Err(_e) => {
             panic!("Dates must be in the 'YYYY-MM-DD' format ");
         }
     }
 }
 
-fn parse_date_arg(date_string: Option<&str>) -> Option<Date<Local>> {
-    let result: Option<Date<Local>> = match date_string {
+fn parse_date_arg(date_string: Option<String>) -> Option<DateTime<Local>> {
+    let result: Option<DateTime<Local>> = match date_string {
         Some(b) => {
             let dt = parse_datelocal(b);
 
@@ -118,59 +118,46 @@ fn is_csv(val: &str) -> Result<(), String> {
 
 fn main() {
     let arg_start_date = Arg::new("start-date")
-        .about("start date in YYYY-MM-DD format")
-        .takes_value(true)
+        .help("start date in YYYY-MM-DD format")
         .long("start-date");
 
     let arg_end_date = Arg::new("end-date")
-        .about("end date in YYYY-MM-DD format")
-        .takes_value(true)
+        .help("end date in YYYY-MM-DD format")
         .long("end-date");
 
     let arg_include = Arg::new("include")
-        .about("comma delimited, glob file path to include path1/*,path2/*")
-        .takes_value(true)
+        .help("comma delimited, glob file path to include path1/*,path2/*")
         .long("include");
 
     let arg_exclude = Arg::new("exclude")
-        .about("comma delimited, glob file path to exclude path1/*,path2/*")
-        .takes_value(true)
+        .help("comma delimited, glob file path to exclude path1/*,path2/*")
         .long("exclude");
 
     let arg_restrict_author = Arg::new("restrict-author")
-        .about("comma delimited of author's names to restrict")
-        .takes_value(true)
+        .help("comma delimited of author's names to restrict")
         .long("restrict-author");
 
-    let arg_debug = Arg::new("debug")
-        .about("enables debug logging")
-        .takes_value(false)
-        .short('d');
-    let arg_verbose = Arg::new("verbose")
-        .about("enables info logging")
-        .takes_value(false)
-        .short('v');
+    let arg_debug = Arg::new("debug").help("enables debug logging").short('d');
+    let arg_verbose = Arg::new("verbose").help("enables info logging").short('v');
 
     let arg_file = Arg::new("file")
-        .about("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg")
-        .takes_value(true).long("file").validator(is_svg);
+        .help("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg")
+        .long("file").value_parser(is_svg);
 
     let arg_cvs_file = Arg::new("file")
-        .about("output file for csv.  Must end in .csv")
-        .takes_value(true)
+        .help("output file for csv.  Must end in .csv")
         .long("file")
-        .validator(is_csv);
+        .value_parser(is_csv);
 
-    let matches = App::new("Grit")
+    let matches = Command::new("grit")
         .about("git repository analyzer")
         .author("Todd Bush")
         .subcommand(
-            App::new("fame")
+            Command::new("fame")
             .about("will create a table of metrics per author.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
             .args(&[
                 Arg::new("sort")
-                    .about("sort field, either 'commit', 'loc', 'files")
-                    .takes_value(true)
+                    .help("sort field, either 'commit', 'loc', 'files")
                     .default_value("commit")
                     .long("sort"),
                 arg_start_date.clone(),
@@ -178,36 +165,32 @@ fn main() {
                 arg_include.clone(),
                 arg_exclude.clone(),
                 arg_restrict_author.clone(),
-                Arg::new("csv").about("output to csv, stdout or file if file arg is present").takes_value(false).long("csv"),
+                Arg::new("csv").help("output to csv, stdout or file if file arg is present").long("csv"),
                 arg_cvs_file.clone(),
                 arg_debug.clone(),
                 arg_verbose.clone(),
             ]),
         )
         .subcommand(
-            App::new("bydate")
+            Command::new("bydate")
             .about("will create a csv of date and commit count to stdout or file.  Option to produce a SVG image.")
             .args(&[
                 arg_start_date.clone(),
                 arg_end_date.clone(),
                 arg_file.clone(),
                 Arg::new("image")
-                    .about("creates an image for the graph.  file is required")
+                    .help("creates an image for the graph.  file is required")
                     .requires("file")
-                    .takes_value(false)
                     .long("image"),
                 Arg::new("html")
-                    .about("creates a HTML file to help visualize the SVG output")
+                    .help("creates a HTML file to about visualize the SVG output")
                     .requires("image")
-                    .takes_value(false)
                     .long("html"),
                 Arg::new("ignore-weekends")
-                    .about("ignore weekends when calculating # of commits")
-                    .takes_value(false)
+                    .help("ignore weekends when calculating # of commits")
                     .long("ignore-weekends"),
                 Arg::new("ignore-gap-fill")
-                    .about("ignore filling empty dates with 0 commits")
-                    .takes_value(false)
+                    .help("ignore filling empty dates with 0 commits")
                     .long("ignore-gap-fill"),
                 arg_restrict_author.clone(),
                 arg_debug.clone(),
@@ -215,24 +198,21 @@ fn main() {
             ]),
         )
         .subcommand(
-            App::new("byfile")
+            Command::new("byfile")
             .about("will create a csv of author, date, and commit counts to stdout or file.  Option to produce a SVG image.")
             .args(&[
                 Arg::new("in-file")
-                    .about("input file")
-                    .takes_value(true)
+                    .help("input file")
                     .required(true)
                     .long("in-file"),
                 arg_file.clone(),
                 Arg::new("image")
-                    .about("creates an image for the graph.  file is required")
+                    .help("creates an image for the graph.  file is required")
                     .requires("file")
-                    .takes_value(false)
                     .long("image"),
                 Arg::new("html")
-                    .about("creates a HTML file to help visualize the SVG output")
+                    .help("creates a HTML file to about visualize the SVG output")
                     .requires("image")
-                    .takes_value(false)
                     .long("html"),
                 arg_restrict_author.clone(),
                 arg_debug.clone(),
@@ -240,7 +220,7 @@ fn main() {
             ]),
         )
         .subcommand(
-            App::new("effort")
+            Command::new("effort")
             .about("will output the # of commits and # of active dates for each file.  Default is CSV, option for a table.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.")
             .args(&[
                 arg_start_date.clone(),
@@ -250,10 +230,8 @@ fn main() {
                 arg_restrict_author.clone(),
                 arg_debug.clone(),
                 arg_verbose.clone(),
-                arg_restrict_author.clone(),
                 Arg::new("table")
-                    .about("display as a table to stdout")
-                    .takes_value(false)
+                    .help("display as a table to stdout")
                     .long("table"),
             ]),
         )
@@ -272,63 +250,61 @@ fn main() {
 }
 
 fn handle_fame(args: &ArgMatches) -> Box<dyn Processable<()>> {
-    set_logging(args.is_present("debug"), args.is_present("verbose"));
+    set_logging(args.contains_id("debug"), args.contains_id("verbose"));
     let fame_args = FameArgs::new(
         String::from("."),
-        convert_str_string(args.value_of("sort")),
-        parse_date_arg(args.value_of("start-date")),
-        parse_date_arg(args.value_of("end-date")),
-        convert_str_string(args.value_of("include")),
-        convert_str_string(args.value_of("exclude")),
-        convert_str_string(args.value_of("restrict-author")),
-        args.is_present("csv"),
-        convert_str_string(args.value_of("file")),
+        convert_str_string(args.get_one::<String>("sort").map(|s| s.as_str())),
+        parse_date_arg(args.get_one::<String>("start-date").cloned()),
+        parse_date_arg(args.get_one::<String>("end-date").cloned()),
+        args.get_one::<String>("include").cloned(),
+        args.get_one::<String>("exclude").cloned(),
+        args.get_one::<String>("restrict-author").cloned(),
+        args.contains_id("csv"),
+        args.get_one::<String>("file").cloned(),
     );
 
     Box::new(Fame::new(fame_args))
 }
 
 fn handle_bydate(args: &ArgMatches) -> Box<dyn Processable<()>> {
-    set_logging(args.is_present("debug"), args.is_present("verbose"));
+    set_logging(args.contains_id("debug"), args.contains_id("verbose"));
     let args = ByDateArgs::new(
         String::from("."),
-        parse_date_arg(args.value_of("start-date")),
-        parse_date_arg(args.value_of("end-date")),
-        convert_str_string(args.value_of("file")),
-        args.is_present("image"),
-        args.is_present("ignore_weekends"),
-        args.is_present("ignore-gap_fill"),
-        args.is_present("html"),
-        convert_str_string(args.value_of("restrict-author")),
+        convert_str_string(args.get_one::<String>("file").map(|s| s.as_str())),
+        args.contains_id("image"),
+        args.contains_id("ignore-weekends"),
+        args.contains_id("ignore-gap-fill"),
+        args.contains_id("html"),
+        args.get_one::<String>("restrict-author").cloned(),
     );
 
     Box::new(ByDate::new(args))
 }
 
 fn handle_byfile(args: &ArgMatches) -> Box<dyn Processable<()>> {
-    set_logging(args.is_present("debug"), args.is_present("verbose"));
+    set_logging(args.contains_id("debug"), args.contains_id("verbose"));
     let args = ByFileArgs::new(
         ".".to_string(),
-        args.value_of("in-file").unwrap().to_string(),
-        convert_str_string(args.value_of("file")),
-        args.is_present("image"),
-        args.is_present("html"),
-        convert_str_string(args.value_of("restrict-author")),
+        args.get_one::<String>("in-file").unwrap().to_string(),
+        convert_str_string(args.get_one::<String>("file").map(|s| s.as_str())),
+        args.contains_id("image"),
+        args.contains_id("html"),
+        args.get_one::<String>("restrict-author").cloned(),
     );
 
     Box::new(ByFile::new(args))
 }
 
 fn handle_effort(args: &ArgMatches) -> Box<dyn Processable<()>> {
-    set_logging(args.is_present("debug"), args.is_present("verbose"));
+    set_logging(args.contains_id("debug"), args.contains_id("verbose"));
     let ea = EffortArgs::new(
         ".".to_string(),
-        parse_date_arg(args.value_of("start-date")),
-        parse_date_arg(args.value_of("end-date")),
-        args.is_present("table"),
-        convert_str_string(args.value_of("include")),
-        convert_str_string(args.value_of("exclude")),
-        convert_str_string(args.value_of("restrict-author")),
+        parse_date_arg(args.get_one::<String>("start-date").cloned()),
+        parse_date_arg(args.get_one::<String>("end-date").cloned()),
+        args.contains_id("table"),
+        args.get_one::<String>("include").cloned(),
+        args.get_one::<String>("exclude").cloned(),
+        args.get_one::<String>("restrict-author").cloned(),
     );
 
     Box::new(Effort::new(ea))
@@ -356,7 +332,7 @@ mod tests {
     fn test_parse_datelocal_good() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
-        let r = parse_datelocal("2020-04-01");
+        let r = parse_datelocal("2020-04-01".to_string());
 
         match r {
             Ok(d) => println!("date parsed to {}", d),
@@ -369,7 +345,7 @@ mod tests {
     fn test_parse_datelocal_bad() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
-        let r = parse_datelocal("2020-04-01t");
+        let r = parse_datelocal("2020-04-01t".to_string());
 
         match r {
             Ok(d) => assert!(false, "date should of failed.  Result:{}", d),

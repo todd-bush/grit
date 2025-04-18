@@ -5,7 +5,7 @@ use charts::{
     AxisPosition, BarDatum, BarLabelPosition, Chart, ScaleBand, ScaleLinear, VerticalBarView,
 };
 use chrono::offset::Local;
-use chrono::Date;
+use chrono::DateTime;
 use csv::Writer;
 use git2::Repository;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -47,12 +47,12 @@ impl ByFileArgs {
 #[derive(Eq, Hash, PartialEq, Clone)]
 struct ByFileOutput {
     name: String,
-    day: Date<Local>,
+    day: DateTime<Local>,
     loc: i32,
 }
 
 impl ByFileOutput {
-    fn new(name: String, day: Date<Local>) -> ByFileOutput {
+    fn new(name: String, day: DateTime<Local>) -> ByFileOutput {
         ByFileOutput {
             name: name,
             day: day,

@@ -4,9 +4,7 @@ use anyhow::Result;
 use charts::{
     Chart, LineSeriesView, MarkerType, PointDatum, PointLabelPosition, ScaleBand, ScaleLinear,
 };
-use chrono::naive::{MAX_DATE, MIN_DATE};
-use chrono::offset::{Local, TimeZone};
-use chrono::{Date, Datelike, Duration, NaiveDateTime, Weekday};
+use chrono::{DateTime, Datelike, Duration, Local, Weekday, Utc, TimeZone};
 use csv::Writer;
 use git2::Repository;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -19,8 +17,6 @@ use std::path::Path;
 
 pub struct ByDateArgs {
     path: String,
-    start_date: Option<Date<Local>>,
-    end_date: Option<Date<Local>>,
     file: Option<String>,
     image: bool,
     ignore_weekends: bool,
@@ -32,8 +28,6 @@ pub struct ByDateArgs {
 impl ByDateArgs {
     pub fn new(
         path: String,
-        start_date: Option<Date<Local>>,
-        end_date: Option<Date<Local>>,
         file: Option<String>,
         image: bool,
         ignore_weekends: bool,
@@ -43,8 +37,6 @@ impl ByDateArgs {
     ) -> ByDateArgs {
         ByDateArgs {
             path: path,
-            start_date: start_date,
-            end_date: end_date,
             file: file,
             image: image,
             ignore_weekends: ignore_weekends,
@@ -55,14 +47,14 @@ impl ByDateArgs {
     }
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Debug)]
 struct ByDateOutput {
-    date: Date<Local>,
+    date: DateTime<Local>,
     count: i32,
 }
 
 impl ByDateOutput {
-    fn new(date: Date<Local>, count: i32) -> ByDateOutput {
+    fn new(date: DateTime<Local>, count: i32) -> ByDateOutput {
         ByDateOutput {
             date: date,
             count: count,
@@ -94,29 +86,24 @@ impl ByDate {
     }
 
     fn process_date(&self) -> Result<Vec<ByDateOutput>> {
-        let end_date = match self.args.end_date {
-            Some(d) => d,
-            None => Local
-                .from_local_date(&MAX_DATE)
-                .single()
-                .expect("Cannot unwrap MAX DATE"),
-        };
-
-        let start_date = match self.args.start_date {
-            Some(d) => d,
-            None => Local
-                .from_local_date(&MIN_DATE)
-                .single()
-                .expect("Cannot unwrap MIN DATE"),
-        };
+        let end_date = DateTime::<Utc>::MAX_UTC;
+        let start_date = DateTime::<Utc>::MIN_UTC;
 
         let restrict_authors =
             grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
 
-        let end_date_sec = end_date.naive_local().and_hms(23, 59, 59).timestamp();
-        let start_date_sec = start_date.naive_local().and_hms(0, 0, 0).timestamp();
+        let end_date_sec = end_date.date_naive()
+            .and_hms_opt(23, 59, 59)
+            .unwrap()
+            .and_utc()
+            .timestamp();
+        let start_date_sec = start_date.date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc()
+            .timestamp();
 
-        let mut output_map: HashMap<Date<Local>, ByDateOutput> = HashMap::new();
+        let mut output_map: HashMap<DateTime<Local>, ByDateOutput> = HashMap::new();
 
         let repo = Repository::open(&self.args.path).expect(format_tostr!(
             "Could not open repo for path {}",
@@ -185,24 +172,28 @@ impl ByDate {
     }
 
     fn is_weekend(&self, ts: i64) -> bool {
-        let d = Local.from_utc_datetime(&NaiveDateTime::from_timestamp(ts, 0));
+        let d = Local.from_utc_datetime(&DateTime::from_timestamp(ts, 0).unwrap().naive_utc());
         d.weekday() == Weekday::Sun || d.weekday() == Weekday::Sat
     }
 
+    // Assigns a count of 0 to dates that don't have a commit.
     fn fill_date_gaps(&self, input: Vec<ByDateOutput>) -> Vec<ByDateOutput> {
-        let mut last_date: Date<Local> = input[0].date;
+        let mut processing_date: DateTime<Local> = input[0].date;
+        let end_date: DateTime<Local> = input[input.len() - 1].date;
         let mut output = input;
         let mut i = 0;
 
+        debug!("starting at : {:?}", processing_date);
+
         loop {
-            if output[i].date != last_date {
-                output.insert(i, ByDateOutput::new(last_date, 0));
+            if output[i].date != processing_date {
+                output.insert(i, ByDateOutput::new(processing_date, 0));
             }
 
-            last_date = last_date.add(Duration::days(1));
+            processing_date = processing_date.add(Duration::days(1));
             i += 1;
 
-            if i >= output.len() {
+            if processing_date > end_date {
                 break;
             }
         }
@@ -309,7 +300,7 @@ impl Processable<()> for ByDate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::NaiveDate;
+    use chrono::{NaiveDateTime, NaiveDate} ;
     use log::LevelFilter;
     use std::time::Instant;
     use tempfile::TempDir;
@@ -325,8 +316,6 @@ mod tests {
 
         let args = ByDateArgs::new(
             String::from(path),
-            None,
-            None,
             None,
             false,
             false,
@@ -364,8 +353,6 @@ mod tests {
         let args = ByDateArgs::new(
             String::from(path),
             None,
-            None,
-            None,
             false,
             true,
             true,
@@ -395,11 +382,8 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let ed = parse_date("2020-03-26");
         let args = ByDateArgs::new(
             String::from(path),
-            None,
-            Some(ed),
             None,
             false,
             false,
@@ -436,8 +420,6 @@ mod tests {
         let args = ByDateArgs::new(
             String::from(path),
             None,
-            None,
-            None,
             false,
             false,
             false,
@@ -467,8 +449,6 @@ mod tests {
         let args = ByDateArgs::new(
             String::from(path),
             None,
-            None,
-            Some(String::from("target/test_image.svg")),
             true,
             true,
             true,
@@ -500,8 +480,6 @@ mod tests {
         let args = ByDateArgs::new(
             String::from("path"),
             None,
-            None,
-            Some(String::from("target/test_image.svg")),
             true,
             true,
             true,
@@ -537,8 +515,6 @@ mod tests {
         let args = ByDateArgs::new(
             String::from("path"),
             None,
-            None,
-            Some(String::from("target/test_image.svg")),
             true,
             true,
             true,
@@ -564,10 +540,10 @@ mod tests {
         assert_eq!(test_out[2].count, 0);
     }
 
-    fn parse_date(date_str: &str) -> Date<Local> {
+    fn parse_date(date_str: &str) -> DateTime<Local> {
         crate::grit_test::set_test_logging(LOG_LEVEL);
-        let utc_dt = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
-
-        Local.from_local_date(&utc_dt).single().unwrap()
+        let naive_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+        let naive_dt = naive_date.and_hms_opt(0, 0, 0).unwrap();
+        Local.from_local_datetime(&naive_dt).unwrap()
     }
 }

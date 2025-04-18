@@ -2,23 +2,22 @@ use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
 use chrono::offset::Local;
-use chrono::Date;
+use chrono::DateTime;
 use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
 use indicatif::ProgressBar;
-use prettytable::{cell, format, row, Table};
+use prettytable::{format, row, Table};
 use std::collections::HashSet;
 use std::io;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use tokio::runtime;
 use tokio::task::JoinHandle;
 
 pub struct EffortArgs {
     path: String,
-    start_date: Option<Date<Local>>,
-    end_date: Option<Date<Local>>,
+    start_date: Option<DateTime<Local>>,
+    end_date: Option<DateTime<Local>>,
     table: bool,
     include: Option<String>,
     exclude: Option<String>,
@@ -28,8 +27,8 @@ pub struct EffortArgs {
 impl EffortArgs {
     pub fn new(
         path: String,
-        start_date: Option<Date<Local>>,
-        end_date: Option<Date<Local>>,
+        start_date: Option<DateTime<Local>>,
+        end_date: Option<DateTime<Local>>,
         table: bool,
         include: Option<String>,
         exclude: Option<String>,
@@ -104,7 +103,7 @@ impl EffortProcessor {
         };
 
         let mut effort_commits: HashSet<String> = HashSet::new();
-        let mut effort_dates: HashSet<Date<Local>> = HashSet::new();
+        let mut effort_dates: HashSet<DateTime<Local>> = HashSet::new();
 
         let file_path = Path::new(file_name);
 
@@ -202,11 +201,9 @@ impl Processable<()> for Effort {
         let pgb = ProgressBar::new(file_names.len() as u64);
         let arc_pgb = Arc::new(RwLock::new(pgb));
 
-        let mut rt = runtime::Builder::new()
-            .threaded_scheduler()
-            .thread_name("grit-effort-thread-runner")
+        let rt = tokio::runtime::Builder::new_current_thread()
             .build()
-            .expect("Fail to create threadpool");
+            .unwrap();
 
         let mut tasks: Vec<JoinHandle<Result<EffortOutput, ()>>> = vec![];
 

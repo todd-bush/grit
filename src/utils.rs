@@ -18,7 +18,7 @@ macro_rules! format_tostr {
 pub mod grit_utils {
 
     use anyhow::Result;
-    use chrono::{Date, Datelike, Local, NaiveDateTime, TimeZone};
+    use chrono::{Datelike, NaiveDateTime, DateTime, Local, Utc, NaiveTime};
     use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
     use std::ffi::OsStr;
@@ -113,13 +113,11 @@ pub mod grit_utils {
         result
     }
 
-    pub fn convert_git_time(time: &Time) -> Date<Local> {
-        Local
-            .from_utc_datetime(&NaiveDateTime::from_timestamp(time.seconds(), 0))
-            .date()
+    pub fn convert_git_time(time: &Time) -> DateTime<Local> {
+        DateTime::<Utc>::from_timestamp(time.seconds(), 0).unwrap().with_timezone(&Local)
     }
 
-    pub fn format_date(d: Date<Local>) -> String {
+    pub fn format_date(d: DateTime<Local>) -> String {
         format!("{}-{:0>2}-{:0>2}", d.year(), d.month(), d.day())
     }
 
@@ -162,8 +160,8 @@ pub mod grit_utils {
 
     pub fn find_commit_range(
         repo_path: &str,
-        start_date: Option<Date<Local>>,
-        end_date: Option<Date<Local>>,
+        start_date: Option<DateTime<Local>>,
+        end_date: Option<DateTime<Local>>,
     ) -> GenResult<(Option<Vec<u8>>, Option<Vec<u8>>)> {
         let mut earliest_commit = None;
         let mut latest_commit = None;
@@ -172,7 +170,10 @@ pub mod grit_utils {
             .expect(format_tostr!("Could not open repo for path {}", repo_path));
 
         if let Some(d) = start_date {
-            let start_date_sec = d.naive_local().and_hms(0, 0, 0).timestamp();
+            let start_date_sec = NaiveDateTime::new(
+                d.date_naive(),
+                NaiveTime::from_hms_opt(0, 0, 0).unwrap()
+            ).and_utc().timestamp();
             let mut revwalk = repo.revwalk()?;
             revwalk
                 .set_sorting(git2::Sort::NONE | git2::Sort::TIME)
@@ -193,7 +194,10 @@ pub mod grit_utils {
         }
 
         if let Some(d) = end_date {
-            let end_date_sec = d.naive_local().and_hms(23, 59, 59).timestamp();
+            let end_date_sec = NaiveDateTime::new(
+                d.date_naive(),
+                NaiveTime::from_hms_opt(23, 59, 59).unwrap()
+            ).and_utc().timestamp();
 
             let mut revwalk = repo.revwalk()?;
             revwalk
@@ -219,12 +223,12 @@ pub mod grit_utils {
 
     #[cfg(test)]
     mod tests {
-
         use super::*;
-        use chrono::NaiveDate;
+        use chrono::{NaiveDate, Local, TimeZone};
         use log::LevelFilter;
         use tempfile::TempDir;
 
+        const LOG_LEVEL: LevelFilter = LevelFilter::Info;
         const DIR: &str = ".";
 
         #[test]
@@ -272,7 +276,8 @@ pub mod grit_utils {
         #[test]
         fn test_format_date() {
             crate::grit_test::set_test_logging(LevelFilter::Info);
-            let test_date = Local.ymd(2020, 3, 13);
+            let test_date = 
+                Local.with_ymd_and_hms(2020, 3, 13, 0, 0, 0).unwrap();
 
             assert_eq!(format_date(test_date), "2020-03-13");
         }
@@ -326,11 +331,11 @@ pub mod grit_utils {
 
         #[test]
         fn test_find_commit_range_early() {
-            crate::grit_test::set_test_logging(LevelFilter::Info);
+            crate::grit_test::set_test_logging(LOG_LEVEL);
 
             let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
-
-            let ed = Local.from_local_date(&utc_dt).single().unwrap();
+            let naive_dt = utc_dt.and_hms_opt(0, 0, 0).unwrap();
+            let ed = Local.from_local_datetime(&naive_dt).unwrap();
             let td: TempDir = crate::grit_test::init_repo();
             let path = td.path().to_str().unwrap();
 
