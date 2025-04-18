@@ -14,3 +14,5 @@ to_file.html
 
 # logs
 *.log
+
+*.svg

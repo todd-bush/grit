@@ -4,7 +4,7 @@ use anyhow::Result;
 use charts::{
     Chart, LineSeriesView, MarkerType, PointDatum, PointLabelPosition, ScaleBand, ScaleLinear,
 };
-use chrono::{DateTime, Datelike, Duration, Local, NaiveDateTime, Weekday, Utc, TimeZone};
+use chrono::{DateTime, Datelike, Duration, Local, Weekday, Utc, TimeZone};
 use csv::Writer;
 use git2::Repository;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -17,8 +17,6 @@ use std::path::Path;
 
 pub struct ByDateArgs {
     path: String,
-    start_date: Option<DateTime<Local>>,
-    end_date: Option<DateTime<Local>>,
     file: Option<String>,
     image: bool,
     ignore_weekends: bool,
@@ -30,8 +28,6 @@ pub struct ByDateArgs {
 impl ByDateArgs {
     pub fn new(
         path: String,
-        start_date: Option<DateTime<Local>>,
-        end_date: Option<DateTime<Local>>,
         file: Option<String>,
         image: bool,
         ignore_weekends: bool,
@@ -41,8 +37,6 @@ impl ByDateArgs {
     ) -> ByDateArgs {
         ByDateArgs {
             path: path,
-            start_date: start_date,
-            end_date: end_date,
             file: file,
             image: image,
             ignore_weekends: ignore_weekends,
@@ -178,7 +172,7 @@ impl ByDate {
     }
 
     fn is_weekend(&self, ts: i64) -> bool {
-        let d = Local.from_utc_datetime(&NaiveDateTime::from_timestamp(ts, 0));
+        let d = Local.from_utc_datetime(&DateTime::from_timestamp(ts, 0).unwrap().naive_utc());
         d.weekday() == Weekday::Sun || d.weekday() == Weekday::Sat
     }
 
@@ -302,7 +296,7 @@ impl Processable<()> for ByDate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::NaiveDate;
+    use chrono::{NaiveDateTime, NaiveDate} ;
     use log::LevelFilter;
     use std::time::Instant;
     use tempfile::TempDir;
@@ -318,8 +312,6 @@ mod tests {
 
         let args = ByDateArgs::new(
             String::from(path),
-            None,
-            None,
             None,
             false,
             false,
@@ -357,8 +349,6 @@ mod tests {
         let args = ByDateArgs::new(
             String::from(path),
             None,
-            None,
-            None,
             false,
             true,
             true,
@@ -388,11 +378,8 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let ed = parse_date("2020-03-26");
         let args = ByDateArgs::new(
             String::from(path),
-            None,
-            Some(ed),
             None,
             false,
             false,
@@ -429,8 +416,6 @@ mod tests {
         let args = ByDateArgs::new(
             String::from(path),
             None,
-            None,
-            None,
             false,
             false,
             false,
@@ -460,8 +445,6 @@ mod tests {
         let args = ByDateArgs::new(
             String::from(path),
             None,
-            None,
-            Some(String::from("target/test_image.svg")),
             true,
             true,
             true,
@@ -493,8 +476,6 @@ mod tests {
         let args = ByDateArgs::new(
             String::from("path"),
             None,
-            None,
-            Some(String::from("target/test_image.svg")),
             true,
             true,
             true,
@@ -530,8 +511,6 @@ mod tests {
         let args = ByDateArgs::new(
             String::from("path"),
             None,
-            None,
-            Some(String::from("target/test_image.svg")),
             true,
             true,
             true,

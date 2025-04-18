@@ -292,8 +292,6 @@ fn handle_bydate(args: &ArgMatches) -> Box<dyn Processable<()>> {
     set_logging(args.is_present("debug"), args.is_present("verbose"));
     let args = ByDateArgs::new(
         String::from("."),
-        parse_date_arg(args.value_of("start-date")),
-        parse_date_arg(args.value_of("end-date")),
         convert_str_string(args.value_of("file")),
         args.is_present("image"),
         args.is_present("ignore_weekends"),

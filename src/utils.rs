@@ -197,7 +197,7 @@ pub mod grit_utils {
             let end_date_sec = NaiveDateTime::new(
                 d.date_naive(),
                 NaiveTime::from_hms_opt(23, 59, 59).unwrap()
-            ).timestamp();
+            ).and_utc().timestamp();
 
             let mut revwalk = repo.revwalk()?;
             revwalk
