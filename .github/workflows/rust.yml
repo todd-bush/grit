@@ -6,33 +6,17 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   build:
 
     runs-on: ubuntu-latest
-    container: rustlang/rust:nightly
-    env:
-      working-directory: ${{ github.workspace }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Build
       run: cargo build --verbose
-      working-directory: ${{ env.working-directory }}
-
-  test:
-    name: Test Suite
-    runs-on: ubuntu-latest
-    container: rustlang/rust:nightly
-    env:
-      RUST_BACKTRACE: full
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: -- --test-threads=1 --nocapture
+    - name: Run tests
+      run: cargo test --verbose
