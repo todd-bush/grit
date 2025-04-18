@@ -25,7 +25,7 @@
 #[macro_use]
 extern crate log;
 extern crate anyhow;
-extern crate charts;
+extern crate charts_rs;
 extern crate chrono;
 extern crate clap;
 extern crate csv;
