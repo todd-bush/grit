@@ -4,9 +4,7 @@ use anyhow::Result;
 use charts::{
     Chart, LineSeriesView, MarkerType, PointDatum, PointLabelPosition, ScaleBand, ScaleLinear,
 };
-use chrono::naive::{MAX_DATE, MIN_DATE};
-use chrono::offset::{Local, TimeZone};
-use chrono::{Date, Datelike, Duration, NaiveDateTime, Weekday};
+use chrono::{DateTime, Datelike, Duration, Local, NaiveDateTime, Weekday, Utc, TimeZone};
 use csv::Writer;
 use git2::Repository;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -19,8 +17,8 @@ use std::path::Path;
 
 pub struct ByDateArgs {
     path: String,
-    start_date: Option<Date<Local>>,
-    end_date: Option<Date<Local>>,
+    start_date: Option<DateTime<Local>>,
+    end_date: Option<DateTime<Local>>,
     file: Option<String>,
     image: bool,
     ignore_weekends: bool,
@@ -32,8 +30,8 @@ pub struct ByDateArgs {
 impl ByDateArgs {
     pub fn new(
         path: String,
-        start_date: Option<Date<Local>>,
-        end_date: Option<Date<Local>>,
+        start_date: Option<DateTime<Local>>,
+        end_date: Option<DateTime<Local>>,
         file: Option<String>,
         image: bool,
         ignore_weekends: bool,
@@ -57,12 +55,12 @@ impl ByDateArgs {
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
 struct ByDateOutput {
-    date: Date<Local>,
+    date: DateTime<Local>,
     count: i32,
 }
 
 impl ByDateOutput {
-    fn new(date: Date<Local>, count: i32) -> ByDateOutput {
+    fn new(date: DateTime<Local>, count: i32) -> ByDateOutput {
         ByDateOutput {
             date: date,
             count: count,
@@ -94,29 +92,22 @@ impl ByDate {
     }
 
     fn process_date(&self) -> Result<Vec<ByDateOutput>> {
-        let end_date = match self.args.end_date {
-            Some(d) => d,
-            None => Local
-                .from_local_date(&MAX_DATE)
-                .single()
-                .expect("Cannot unwrap MAX DATE"),
-        };
-
-        let start_date = match self.args.start_date {
-            Some(d) => d,
-            None => Local
-                .from_local_date(&MIN_DATE)
-                .single()
-                .expect("Cannot unwrap MIN DATE"),
-        };
+        let end_date = DateTime::<Utc>::MAX_UTC;
+        let start_date = DateTime::<Utc>::MIN_UTC;
 
         let restrict_authors =
             grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
 
-        let end_date_sec = end_date.naive_local().and_hms(23, 59, 59).timestamp();
-        let start_date_sec = start_date.naive_local().and_hms(0, 0, 0).timestamp();
+        let end_date_sec = end_date.date_naive()
+            .and_hms_opt(23, 59, 59)
+            .unwrap()
+            .timestamp();
+        let start_date_sec = start_date.date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .timestamp();
 
-        let mut output_map: HashMap<Date<Local>, ByDateOutput> = HashMap::new();
+        let mut output_map: HashMap<DateTime<Local>, ByDateOutput> = HashMap::new();
 
         let repo = Repository::open(&self.args.path).expect(format_tostr!(
             "Could not open repo for path {}",
@@ -190,7 +181,7 @@ impl ByDate {
     }
 
     fn fill_date_gaps(&self, input: Vec<ByDateOutput>) -> Vec<ByDateOutput> {
-        let mut last_date: Date<Local> = input[0].date;
+        let mut last_date: DateTime<Local> = input[0].date;
         let mut output = input;
         let mut i = 0;
 
@@ -564,10 +555,10 @@ mod tests {
         assert_eq!(test_out[2].count, 0);
     }
 
-    fn parse_date(date_str: &str) -> Date<Local> {
+    fn parse_date(date_str: &str) -> DateTime<Local> {
         crate::grit_test::set_test_logging(LOG_LEVEL);
-        let utc_dt = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
-
-        Local.from_local_date(&utc_dt).single().unwrap()
+        let naive_date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+        let naive_dt = naive_date.and_hms_opt(0, 0, 0).unwrap();
+        Local.from_local_datetime(&naive_dt).unwrap()
     }
 }

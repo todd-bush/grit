@@ -52,7 +52,7 @@ use crate::effort::{Effort, EffortArgs};
 use crate::fame::{Fame, FameArgs};
 
 use anyhow::Result;
-use chrono::{Date, Local, NaiveDate, TimeZone};
+use chrono::{Local, NaiveDate, TimeZone, DateTime};
 use clap::{App, Arg, ArgMatches};
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
@@ -64,22 +64,22 @@ pub trait Processable<T> {
     fn process(&self) -> Result<T>;
 }
 
-fn parse_datelocal(date_string: &str) -> Result<Date<Local>> {
+fn parse_datelocal(date_string: &str) -> Result<DateTime<Local>> {
     let utc_dt = NaiveDate::parse_from_str(date_string, "%Y-%m-%d");
 
     match utc_dt {
-        Ok(d) => Ok(Local
-            .from_local_date(&d)
-            .single()
-            .expect("Cannot unwrap date")),
+        Ok(d) => {
+            let naive_dt = d.and_hms_opt(0, 0, 0).unwrap();
+            Ok(Local.from_local_datetime(&naive_dt).unwrap())
+        },
         Err(_e) => {
             panic!("Dates must be in the 'YYYY-MM-DD' format ");
         }
     }
 }
 
-fn parse_date_arg(date_string: Option<&str>) -> Option<Date<Local>> {
-    let result: Option<Date<Local>> = match date_string {
+fn parse_date_arg(date_string: Option<&str>) -> Option<DateTime<Local>> {
+    let result: Option<DateTime<Local>> = match date_string {
         Some(b) => {
             let dt = parse_datelocal(b);
 

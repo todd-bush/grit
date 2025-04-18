@@ -2,7 +2,7 @@ use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
 use chrono::offset::Local;
-use chrono::Date;
+use chrono::DateTime;
 use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
@@ -17,8 +17,8 @@ use tokio::task::JoinHandle;
 
 pub struct EffortArgs {
     path: String,
-    start_date: Option<Date<Local>>,
-    end_date: Option<Date<Local>>,
+    start_date: Option<DateTime<Local>>,
+    end_date: Option<DateTime<Local>>,
     table: bool,
     include: Option<String>,
     exclude: Option<String>,
@@ -28,8 +28,8 @@ pub struct EffortArgs {
 impl EffortArgs {
     pub fn new(
         path: String,
-        start_date: Option<Date<Local>>,
-        end_date: Option<Date<Local>>,
+        start_date: Option<DateTime<Local>>,
+        end_date: Option<DateTime<Local>>,
         table: bool,
         include: Option<String>,
         exclude: Option<String>,
@@ -104,7 +104,7 @@ impl EffortProcessor {
         };
 
         let mut effort_commits: HashSet<String> = HashSet::new();
-        let mut effort_dates: HashSet<Date<Local>> = HashSet::new();
+        let mut effort_dates: HashSet<DateTime<Local>> = HashSet::new();
 
         let file_path = Path::new(file_name);
 

@@ -1,7 +1,7 @@
 use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
-use chrono::{Date, Local};
+use chrono::{DateTime, Local};
 use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
@@ -22,8 +22,8 @@ use tokio::task::JoinHandle;
 pub struct FameArgs {
     path: String,
     sort: Option<String>,
-    start_date: Option<Date<Local>>,
-    end_date: Option<Date<Local>>,
+    start_date: Option<DateTime<Local>>,
+    end_date: Option<DateTime<Local>>,
     include: Option<String>,
     exclude: Option<String>,
     restrict_authors: Option<String>,
@@ -35,8 +35,8 @@ impl FameArgs {
     pub fn new(
         path: String,
         sort: Option<String>,
-        start_date: Option<Date<Local>>,
-        end_date: Option<Date<Local>>,
+        start_date: Option<DateTime<Local>>,
+        end_date: Option<DateTime<Local>>,
         include: Option<String>,
         exclude: Option<String>,
         restrict_authors: Option<String>,
@@ -445,8 +445,8 @@ mod tests {
         let path = td.path().to_str().unwrap();
 
         let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
-
-        let ed = Local.from_local_date(&utc_dt).single().unwrap();
+        let naive_dt = utc_dt.and_hms_opt(0, 0, 0).unwrap();
+        let ed = Local.from_local_datetime(&naive_dt).unwrap();
 
         let args = FameArgs::new(
             path.to_string(),
@@ -483,7 +483,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let ed = Local::now().add(Duration::days(-30)).date();
+        let ed = Local::now().add(Duration::days(-30));
 
         let args = FameArgs::new(
             path.to_string(),
