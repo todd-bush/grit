@@ -7,12 +7,11 @@ use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
 use indicatif::ProgressBar;
-use prettytable::{cell, format, row, Table};
+use prettytable::{format, row, Table};
 use std::collections::HashSet;
 use std::io;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
-use tokio::runtime;
 use tokio::task::JoinHandle;
 
 pub struct EffortArgs {
@@ -202,11 +201,9 @@ impl Processable<()> for Effort {
         let pgb = ProgressBar::new(file_names.len() as u64);
         let arc_pgb = Arc::new(RwLock::new(pgb));
 
-        let mut rt = runtime::Builder::new()
-            .threaded_scheduler()
-            .thread_name("grit-effort-thread-runner")
+        let rt = tokio::runtime::Builder::new_current_thread()
             .build()
-            .expect("Fail to create threadpool");
+            .unwrap();
 
         let mut tasks: Vec<JoinHandle<Result<EffortOutput, ()>>> = vec![];
 

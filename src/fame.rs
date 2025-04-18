@@ -6,7 +6,7 @@ use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
 use indicatif::ProgressBar;
-use prettytable::{cell, format, row, Table};
+use prettytable::{format, row, Table};
 use std::boxed::Box;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
@@ -16,7 +16,6 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use tokio::runtime;
 use tokio::task::JoinHandle;
 
 pub struct FameArgs {
@@ -295,11 +294,9 @@ impl Processable<()> for Fame {
         let pgb = ProgressBar::new(file_names.len() as u64);
         let arc_pgb = Arc::new(RwLock::new(pgb));
 
-        let mut rt = runtime::Builder::new()
-            .threaded_scheduler()
-            .thread_name("grit-fame-thread-runner")
+        let rt = tokio::runtime::Builder::new_current_thread()
             .build()
-            .expect("Failed to create threadpool.");
+            .unwrap();
 
         let mut tasks: Vec<JoinHandle<Result<Vec<BlameOutput>, ()>>> = vec![];
 

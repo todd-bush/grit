@@ -16,3 +16,4 @@ to_file.html
 *.log
 
 *.svg
+*.code-workspace
