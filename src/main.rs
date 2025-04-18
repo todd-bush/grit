@@ -230,7 +230,6 @@ fn main() {
                 arg_restrict_author.clone(),
                 arg_debug.clone(),
                 arg_verbose.clone(),
-                arg_restrict_author.clone(),
                 Arg::new("table")
                     .help("display as a table to stdout")
                     .long("table"),
@@ -273,8 +272,8 @@ fn handle_bydate(args: &ArgMatches) -> Box<dyn Processable<()>> {
         String::from("."),
         convert_str_string(args.get_one::<String>("file").map(|s| s.as_str())),
         args.contains_id("image"),
-        args.contains_id("ignore_weekends"),
-        args.contains_id("ignore-gap_fill"),
+        args.contains_id("ignore-weekends"),
+        args.contains_id("ignore-gap-fill"),
         args.contains_id("html"),
         args.get_one::<String>("restrict-author").cloned(),
     );

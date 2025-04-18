@@ -17,3 +17,4 @@ to_file.html
 
 *.svg
 *.code-workspace
+.vscode/
