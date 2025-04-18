@@ -101,10 +101,12 @@ impl ByDate {
         let end_date_sec = end_date.date_naive()
             .and_hms_opt(23, 59, 59)
             .unwrap()
+            .and_utc()
             .timestamp();
         let start_date_sec = start_date.date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap()
+            .and_utc()
             .timestamp();
 
         let mut output_map: HashMap<DateTime<Local>, ByDateOutput> = HashMap::new();

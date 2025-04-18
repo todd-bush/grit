@@ -313,7 +313,7 @@ impl Processable<()> for Fame {
                 bp.process(String::from(&file_name))
                     .await
                     .map(|pr| {
-                        &arc_pgb_c
+                        arc_pgb_c
                             .write()
                             .expect("cannot open progress bar for write")
                             .inc(1);
