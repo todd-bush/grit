@@ -47,7 +47,7 @@ impl ByDateArgs {
     }
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Clone)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Debug)]
 struct ByDateOutput {
     date: DateTime<Local>,
     count: i32,
@@ -176,20 +176,24 @@ impl ByDate {
         d.weekday() == Weekday::Sun || d.weekday() == Weekday::Sat
     }
 
+    // Assigns a count of 0 to dates that don't have a commit.
     fn fill_date_gaps(&self, input: Vec<ByDateOutput>) -> Vec<ByDateOutput> {
-        let mut last_date: DateTime<Local> = input[0].date;
+        let mut processing_date: DateTime<Local> = input[0].date;
+        let end_date: DateTime<Local> = input[input.len() - 1].date;
         let mut output = input;
         let mut i = 0;
 
+        debug!("starting at : {:?}", processing_date);
+
         loop {
-            if output[i].date != last_date {
-                output.insert(i, ByDateOutput::new(last_date, 0));
+            if output[i].date != processing_date {
+                output.insert(i, ByDateOutput::new(processing_date, 0));
             }
 
-            last_date = last_date.add(Duration::days(1));
+            processing_date = processing_date.add(Duration::days(1));
             i += 1;
 
-            if i >= output.len() {
+            if processing_date > end_date {
                 break;
             }
         }
