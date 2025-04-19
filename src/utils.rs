@@ -18,7 +18,7 @@ macro_rules! format_tostr {
 pub mod grit_utils {
 
     use anyhow::Result;
-    use chrono::{Datelike, NaiveDateTime, DateTime, Local, Utc, NaiveTime};
+    use chrono::{DateTime, Datelike, Local, NaiveDateTime, NaiveTime, Utc};
     use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
     use std::ffi::OsStr;
@@ -114,7 +114,9 @@ pub mod grit_utils {
     }
 
     pub fn convert_git_time(time: &Time) -> DateTime<Local> {
-        DateTime::<Utc>::from_timestamp(time.seconds(), 0).unwrap().with_timezone(&Local)
+        DateTime::<Utc>::from_timestamp(time.seconds(), 0)
+            .unwrap()
+            .with_timezone(&Local)
     }
 
     pub fn format_date(d: DateTime<Local>) -> String {
@@ -170,10 +172,10 @@ pub mod grit_utils {
             .expect(format_tostr!("Could not open repo for path {}", repo_path));
 
         if let Some(d) = start_date {
-            let start_date_sec = NaiveDateTime::new(
-                d.date_naive(),
-                NaiveTime::from_hms_opt(0, 0, 0).unwrap()
-            ).and_utc().timestamp();
+            let start_date_sec =
+                NaiveDateTime::new(d.date_naive(), NaiveTime::from_hms_opt(0, 0, 0).unwrap())
+                    .and_utc()
+                    .timestamp();
             let mut revwalk = repo.revwalk()?;
             revwalk
                 .set_sorting(git2::Sort::NONE | git2::Sort::TIME)
@@ -194,10 +196,10 @@ pub mod grit_utils {
         }
 
         if let Some(d) = end_date {
-            let end_date_sec = NaiveDateTime::new(
-                d.date_naive(),
-                NaiveTime::from_hms_opt(23, 59, 59).unwrap()
-            ).and_utc().timestamp();
+            let end_date_sec =
+                NaiveDateTime::new(d.date_naive(), NaiveTime::from_hms_opt(23, 59, 59).unwrap())
+                    .and_utc()
+                    .timestamp();
 
             let mut revwalk = repo.revwalk()?;
             revwalk
@@ -224,7 +226,7 @@ pub mod grit_utils {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use chrono::{NaiveDate, Local, TimeZone};
+        use chrono::{Local, NaiveDate, TimeZone};
         use log::LevelFilter;
         use tempfile::TempDir;
 
@@ -276,8 +278,7 @@ pub mod grit_utils {
         #[test]
         fn test_format_date() {
             crate::grit_test::set_test_logging(LevelFilter::Info);
-            let test_date = 
-                Local.with_ymd_and_hms(2020, 3, 13, 0, 0, 0).unwrap();
+            let test_date = Local.with_ymd_and_hms(2020, 3, 13, 0, 0, 0).unwrap();
 
             assert_eq!(format_date(test_date), "2020-03-13");
         }

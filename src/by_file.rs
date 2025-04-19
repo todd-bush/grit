@@ -1,15 +1,14 @@
 use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
-use charts::{
-    AxisPosition, BarDatum, BarLabelPosition, Chart, ScaleBand, ScaleLinear, VerticalBarView,
-};
-use chrono::offset::Local;
+use charts_rs::{LineChart, Series};
 use chrono::DateTime;
+use chrono::offset::Local;
 use csv::Writer;
 use git2::Repository;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::fs::File;
 use std::io;
 use std::io::Write;
@@ -44,11 +43,11 @@ impl ByFileArgs {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 struct ByFileOutput {
     name: String,
     day: DateTime<Local>,
-    loc: i32,
+    loc: f32,
 }
 
 impl ByFileOutput {
@@ -56,21 +55,23 @@ impl ByFileOutput {
         ByFileOutput {
             name: name,
             day: day,
-            loc: 0,
+            loc: 0.0,
         }
     }
 }
 
-impl BarDatum for ByFileOutput {
-    fn get_category(&self) -> String {
-        grit_utils::format_date(self.day)
-    }
-    fn get_value(&self) -> f32 {
-        self.loc as f32
-    }
-
-    fn get_key(&self) -> String {
-        self.name.clone()
+impl FromIterator<ByFileOutput> for BTreeMap<String, Vec<f32>> {
+    fn from_iter<T: IntoIterator<Item = ByFileOutput>>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = ByFileOutput>,
+    {
+        let mut map = BTreeMap::new();
+        for item in iter {
+            map.entry(grit_utils::format_date(item.day))
+                .or_insert_with(Vec::new)
+                .push(item.loc as f32);
+        }
+        map
     }
 }
 
@@ -125,49 +126,30 @@ impl ByFile {
 
         let (top, right, bottom, left) = (90, 40, 50, 60);
 
-        let max_size_ojb = data.iter().max_by(|a, b| a.loc.cmp(&b.loc));
-        let max_count = match max_size_ojb {
-            Some(m) => m.loc as f32 + 5.0,
-            None => 100.0, //default
-        };
+        let chart_map: BTreeMap<String, Vec<f32>> = BTreeMap::from_iter(data.clone());
 
-        let mut authors: Vec<String> = data.iter().map(|d| d.name.clone()).collect();
-        authors.sort();
-        authors.dedup();
+        let chart_data: Vec<Series> = chart_map
+            .iter()
+            .map(|(k, v)| (Series::new(k.clone(), v.clone())))
+            .collect();
 
         let dates: Vec<String> = data
             .iter()
             .map(|d| grit_utils::format_date(d.day))
             .collect();
 
-        let x_sb = ScaleBand::new()
-            .set_domain(dates)
-            .set_range(vec![0, width - left - right]);
+        let mut line_chart = LineChart::new_with_theme(chart_data, dates, "chaulk");
 
-        let y_sb = ScaleLinear::new()
-            .set_domain(vec![0.0, max_count])
-            .set_range(vec![height - top - bottom, 0]);
+        line_chart.width = width as f32;
+        line_chart.height = height as f32;
+        line_chart.margin.top = top as f32;
+        line_chart.margin.right = right as f32;
+        line_chart.margin.bottom = bottom as f32;
+        line_chart.margin.left = left as f32;
 
-        let view = VerticalBarView::new()
-            .set_x_scale(&x_sb)
-            .set_y_scale(&y_sb)
-            .set_keys(authors)
-            .set_label_position(BarLabelPosition::Center)
-            .load_data(&data)
-            .expect("Could not create view");
+        line_chart.title_text = self.args.full_path_filename.clone();
 
-        Chart::new()
-            .set_width(width)
-            .set_height(height)
-            .set_margins(top, right, bottom, left)
-            .add_title(self.args.full_path_filename.clone())
-            .add_view(&view)
-            .add_axis_bottom(&x_sb)
-            .add_axis_left(&y_sb)
-            .add_legend_at(AxisPosition::Top)
-            .set_bottom_axis_tick_label_rotation(-45)
-            .save(Path::new(&f))
-            .expect("Failed to create chart");
+        std::fs::write(Path::new(&f), line_chart.svg().unwrap()).expect("Failed to create chart");
 
         if self.args.html {
             grit_utils::create_html(&f).expect("failed to creat HTML page");
@@ -211,7 +193,7 @@ impl Processable<()> for ByFile {
                 Occupied(entry) => entry.into_mut(),
             };
 
-            v.loc += hunk.lines_in_hunk() as i32;
+            v.loc += hunk.lines_in_hunk() as f32;
         }
 
         let mut results: Vec<ByFileOutput> = auth_to_loc.values().cloned().collect();

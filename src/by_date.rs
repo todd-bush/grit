@@ -1,19 +1,17 @@
 use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
-use charts::{
-    Chart, LineSeriesView, MarkerType, PointDatum, PointLabelPosition, ScaleBand, ScaleLinear,
-};
-use chrono::{DateTime, Datelike, Duration, Local, Weekday, Utc, TimeZone};
+use charts_rs::{LineChart, Series};
+use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Utc, Weekday};
 use csv::Writer;
 use git2::Repository;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::ops::Add;
-use std::path::Path;
 
 pub struct ByDateArgs {
     path: String,
@@ -47,32 +45,30 @@ impl ByDateArgs {
     }
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Debug)]
+#[derive(PartialOrd, PartialEq, Clone, Debug)]
 struct ByDateOutput {
     date: DateTime<Local>,
-    count: i32,
+    count: f32,
 }
 
 impl ByDateOutput {
-    fn new(date: DateTime<Local>, count: i32) -> ByDateOutput {
-        ByDateOutput {
-            date: date,
-            count: count,
-        }
+    fn new(date: DateTime<Local>, count: f32) -> ByDateOutput {
+        ByDateOutput { date, count }
     }
 }
 
-impl PointDatum<String, f32> for ByDateOutput {
-    fn get_x(&self) -> String {
-        grit_utils::format_date(self.date)
-    }
-
-    fn get_y(&self) -> f32 {
-        self.count as f32
-    }
-
-    fn get_key(&self) -> String {
-        String::from("")
+impl FromIterator<ByDateOutput> for BTreeMap<String, Vec<f32>> {
+    fn from_iter<T: IntoIterator<Item = ByDateOutput>>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = ByDateOutput>,
+    {
+        let mut map = BTreeMap::new();
+        for item in iter {
+            map.entry(grit_utils::format_date(item.date.clone()))
+                .or_insert_with(Vec::new)
+                .push(item.count.clone());
+        }
+        map
     }
 }
 
@@ -92,12 +88,14 @@ impl ByDate {
         let restrict_authors =
             grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
 
-        let end_date_sec = end_date.date_naive()
+        let end_date_sec = end_date
+            .date_naive()
             .and_hms_opt(23, 59, 59)
             .unwrap()
             .and_utc()
             .timestamp();
-        let start_date_sec = start_date.date_naive()
+        let start_date_sec = start_date
+            .date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap()
             .and_utc()
@@ -153,16 +151,16 @@ impl ByDate {
             let dt = grit_utils::convert_git_time(commit_time);
 
             let v = match output_map.entry(dt) {
-                Vacant(entry) => entry.insert(ByDateOutput::new(dt, 0)),
+                Vacant(entry) => entry.insert(ByDateOutput::new(dt, 0.0)),
                 Occupied(entry) => entry.into_mut(),
             };
 
-            v.count += 1;
+            v.count += 1.0;
         }
 
         let mut output: Vec<ByDateOutput> = output_map.values().cloned().collect();
 
-        output.sort();
+        output.sort_by(|a, b| a.date.cmp(&b.date));
 
         if !&self.args.ignore_gap_fill {
             output = self.fill_date_gaps(output);
@@ -187,7 +185,7 @@ impl ByDate {
 
         loop {
             if output[i].date != processing_date {
-                output.insert(i, ByDateOutput::new(processing_date, 0));
+                output.insert(i, ByDateOutput::new(processing_date, 0.0));
             }
 
             processing_date = processing_date.add(Duration::days(1));
@@ -214,10 +212,10 @@ impl ByDate {
 
         wtr.write_record(&["date", "count"])?;
 
-        let mut total_count = 0;
+        let mut total_count = 0.0;
 
         output.iter().for_each(|r| {
-            wtr.serialize((grit_utils::format_date(r.date), r.count))
+            wtr.serialize((grit_utils::format_date(r.date.clone()), r.count))
                 .expect("Cannot seralize table row");
 
             total_count += r.count;
@@ -237,6 +235,7 @@ impl ByDate {
             .file
             .clone()
             .unwrap_or_else(|| String::from("commits.svg"));
+
         let (width, height) = if output.len() > 60 {
             (1920, 960)
         } else if output.len() > 35 {
@@ -244,39 +243,37 @@ impl ByDate {
         } else {
             (1027, 768)
         };
+
         let (top, right, bottom, left) = (90, 40, 50, 60);
-        let dates = output
+
+        let data: Vec<(String, f32)> = output
+            .iter()
+            .map(|d| (grit_utils::format_date(d.date.clone()), d.count.clone()))
+            .collect();
+        let mut chart_map: BTreeMap<String, Vec<f32>> = BTreeMap::new();
+        for (date, count) in data {
+            chart_map.entry(date).or_insert_with(Vec::new).push(count);
+        }
+        let chart_data: Vec<Series> = chart_map
+            .iter()
+            .map(|(k, v)| (Series::new(k.clone(), v.clone())))
+            .collect();
+
+        let dates: Vec<String> = output
             .iter()
             .map(|d| grit_utils::format_date(d.date))
             .collect();
-        let max_count_obj = output.iter().max_by(|x, y| x.count.cmp(&y.count));
-        let max_count = max_count_obj.expect("Cannot access max count object").count as f32 + 5.0;
-        let x = ScaleBand::new()
-            .set_domain(dates)
-            .set_range(vec![0, width - left - right]);
-        let y = ScaleLinear::new()
-            .set_domain(vec![0_f32, max_count])
-            .set_range(vec![height - top - bottom, 0]);
-        let line_view = LineSeriesView::new()
-            .set_x_scale(&x)
-            .set_y_scale(&y)
-            .set_marker_type(MarkerType::Circle)
-            .set_label_position(PointLabelPosition::NW)
-            .set_label_visibility(false) // remove this line to enable point labels, once configurable
-            .load_data(&output)
-            .expect("Failed to create Line View");
-        let _chart = Chart::new()
-            .set_width(width)
-            .set_height(height)
-            .set_margins(top, right, bottom, left)
-            .add_title(String::from("By Date"))
-            .add_view(&line_view)
-            .add_axis_bottom(&x)
-            .add_axis_left(&y)
-            .add_left_axis_label("Commits")
-            .set_bottom_axis_tick_label_rotation(-45)
-            .save(Path::new(&file))
-            .expect("Failed to create Chart");
+
+        let mut line_chart = LineChart::new_with_theme(chart_data, dates, "chaulk");
+
+        line_chart.width = width as f32;
+        line_chart.height = height as f32;
+        line_chart.margin.top = top as f32;
+        line_chart.margin.right = right as f32;
+        line_chart.margin.bottom = bottom as f32;
+        line_chart.margin.left = left as f32;
+        line_chart.title_text = String::from("By Date");
+
         if self.args.html {
             grit_utils::create_html(&file).expect("Failed to make HTML file.");
         }
@@ -300,7 +297,7 @@ impl Processable<()> for ByDate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{NaiveDateTime, NaiveDate} ;
+    use chrono::{NaiveDate, NaiveDateTime};
     use log::LevelFilter;
     use std::time::Instant;
     use tempfile::TempDir;
@@ -314,15 +311,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let args = ByDateArgs::new(
-            String::from(path),
-            None,
-            false,
-            false,
-            false,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from(path), None, false, false, false, false, None);
 
         let bd = ByDate::new(args);
 
@@ -350,15 +339,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let args = ByDateArgs::new(
-            String::from(path),
-            None,
-            false,
-            true,
-            true,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from(path), None, false, true, true, false, None);
 
         let bd = ByDate::new(args);
 
@@ -382,15 +363,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let args = ByDateArgs::new(
-            String::from(path),
-            None,
-            false,
-            false,
-            false,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from(path), None, false, false, false, false, None);
 
         let bd = ByDate::new(args);
 
@@ -446,15 +419,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let args = ByDateArgs::new(
-            String::from(path),
-            None,
-            true,
-            true,
-            true,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from(path), None, true, true, true, false, None);
 
         let start = Instant::now();
 
@@ -477,15 +442,7 @@ mod tests {
     fn test_is_weekend() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
-        let args = ByDateArgs::new(
-            String::from("path"),
-            None,
-            true,
-            true,
-            true,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from("path"), None, true, true, true, false, None);
 
         let bd = ByDate::new(args);
 
@@ -512,21 +469,13 @@ mod tests {
     fn test_fill_date_gaps() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
-        let args = ByDateArgs::new(
-            String::from("path"),
-            None,
-            true,
-            true,
-            true,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from("path"), None, true, true, true, false, None);
 
         let bd = ByDate::new(args);
 
         let test_data: Vec<ByDateOutput> = [
-            ByDateOutput::new(parse_date("2020-03-13"), 15),
-            ByDateOutput::new(parse_date("2020-03-16"), 45),
+            ByDateOutput::new(parse_date("2020-03-13"), 15.0),
+            ByDateOutput::new(parse_date("2020-03-16"), 45.0),
         ]
         .to_vec();
 
@@ -537,7 +486,7 @@ mod tests {
         println!("test_fill_date_gaps done in {:?}", duration);
 
         assert_eq!(test_out.len(), 4);
-        assert_eq!(test_out[2].count, 0);
+        assert_eq!(test_out[2].count, 0.0);
     }
 
     fn parse_date(date_str: &str) -> DateTime<Local> {

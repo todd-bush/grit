@@ -6,7 +6,7 @@ use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
 use indicatif::ProgressBar;
-use prettytable::{format, row, Table};
+use prettytable::{Table, format, row};
 use std::boxed::Box;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
