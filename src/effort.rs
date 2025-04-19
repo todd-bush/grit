@@ -1,13 +1,13 @@
 use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
-use chrono::offset::Local;
 use chrono::DateTime;
+use chrono::offset::Local;
 use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
 use indicatif::ProgressBar;
-use prettytable::{format, row, Table};
+use prettytable::{Table, format, row};
 use std::collections::HashSet;
 use std::io;
 use std::path::Path;

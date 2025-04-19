@@ -2,16 +2,16 @@ use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
 use charts_rs::{LineChart, Series};
-use chrono::{DateTime, Datelike, Duration, Local, Weekday, Utc, TimeZone};
+use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Utc, Weekday};
 use csv::Writer;
 use git2::Repository;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::ops::Add;
-use std::collections::BTreeMap;
 
 pub struct ByDateArgs {
     path: String,
@@ -53,23 +53,20 @@ struct ByDateOutput {
 
 impl ByDateOutput {
     fn new(date: DateTime<Local>, count: f32) -> ByDateOutput {
-        ByDateOutput {
-            date,
-            count,
-        }
+        ByDateOutput { date, count }
     }
 }
 
 impl FromIterator<ByDateOutput> for BTreeMap<String, Vec<f32>> {
-    fn from_iter<T: IntoIterator<Item = ByDateOutput>>(iter: T) -> Self 
-    where 
+    fn from_iter<T: IntoIterator<Item = ByDateOutput>>(iter: T) -> Self
+    where
         T: IntoIterator<Item = ByDateOutput>,
     {
         let mut map = BTreeMap::new();
         for item in iter {
             map.entry(grit_utils::format_date(item.date.clone()))
-            .or_insert_with(Vec::new)
-            .push(item.count.clone());
+                .or_insert_with(Vec::new)
+                .push(item.count.clone());
         }
         map
     }
@@ -91,12 +88,14 @@ impl ByDate {
         let restrict_authors =
             grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
 
-        let end_date_sec = end_date.date_naive()
+        let end_date_sec = end_date
+            .date_naive()
             .and_hms_opt(23, 59, 59)
             .unwrap()
             .and_utc()
             .timestamp();
-        let start_date_sec = start_date.date_naive()
+        let start_date_sec = start_date
+            .date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap()
             .and_utc()
@@ -244,36 +243,37 @@ impl ByDate {
         } else {
             (1027, 768)
         };
-        
+
         let (top, right, bottom, left) = (90, 40, 50, 60);
-        
-        let data: Vec<(String, f32)> = output.iter().map(|d| (grit_utils::format_date(d.date.clone()), d.count.clone())).collect();
+
+        let data: Vec<(String, f32)> = output
+            .iter()
+            .map(|d| (grit_utils::format_date(d.date.clone()), d.count.clone()))
+            .collect();
         let mut chart_map: BTreeMap<String, Vec<f32>> = BTreeMap::new();
         for (date, count) in data {
             chart_map.entry(date).or_insert_with(Vec::new).push(count);
         }
-        let chart_data: Vec<Series> = chart_map.iter()
-        .map(|(k, v)| (Series::new(k.clone(), v.clone())))
-        .collect();
+        let chart_data: Vec<Series> = chart_map
+            .iter()
+            .map(|(k, v)| (Series::new(k.clone(), v.clone())))
+            .collect();
 
         let dates: Vec<String> = output
-        .iter()
-        .map(|d| grit_utils::format_date(d.date))
-        .collect();
-        
-        let mut line_chart = LineChart::new_with_theme(
-            chart_data, 
-            dates, 
-            "chaulk");
-        
-        line_chart.width =width as f32;
-        line_chart.height =height as f32;
+            .iter()
+            .map(|d| grit_utils::format_date(d.date))
+            .collect();
+
+        let mut line_chart = LineChart::new_with_theme(chart_data, dates, "chaulk");
+
+        line_chart.width = width as f32;
+        line_chart.height = height as f32;
         line_chart.margin.top = top as f32;
         line_chart.margin.right = right as f32;
         line_chart.margin.bottom = bottom as f32;
         line_chart.margin.left = left as f32;
         line_chart.title_text = String::from("By Date");
-        
+
         if self.args.html {
             grit_utils::create_html(&file).expect("Failed to make HTML file.");
         }
@@ -297,7 +297,7 @@ impl Processable<()> for ByDate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{NaiveDateTime, NaiveDate} ;
+    use chrono::{NaiveDate, NaiveDateTime};
     use log::LevelFilter;
     use std::time::Instant;
     use tempfile::TempDir;
@@ -311,15 +311,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let args = ByDateArgs::new(
-            String::from(path),
-            None,
-            false,
-            false,
-            false,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from(path), None, false, false, false, false, None);
 
         let bd = ByDate::new(args);
 
@@ -347,15 +339,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let args = ByDateArgs::new(
-            String::from(path),
-            None,
-            false,
-            true,
-            true,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from(path), None, false, true, true, false, None);
 
         let bd = ByDate::new(args);
 
@@ -379,15 +363,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let args = ByDateArgs::new(
-            String::from(path),
-            None,
-            false,
-            false,
-            false,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from(path), None, false, false, false, false, None);
 
         let bd = ByDate::new(args);
 
@@ -443,15 +419,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let args = ByDateArgs::new(
-            String::from(path),
-            None,
-            true,
-            true,
-            true,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from(path), None, true, true, true, false, None);
 
         let start = Instant::now();
 
@@ -474,15 +442,7 @@ mod tests {
     fn test_is_weekend() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
-        let args = ByDateArgs::new(
-            String::from("path"),
-            None,
-            true,
-            true,
-            true,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from("path"), None, true, true, true, false, None);
 
         let bd = ByDate::new(args);
 
@@ -509,15 +469,7 @@ mod tests {
     fn test_fill_date_gaps() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
-        let args = ByDateArgs::new(
-            String::from("path"),
-            None,
-            true,
-            true,
-            true,
-            false,
-            None,
-        );
+        let args = ByDateArgs::new(String::from("path"), None, true, true, true, false, None);
 
         let bd = ByDate::new(args);
 

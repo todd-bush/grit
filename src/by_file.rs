@@ -2,17 +2,17 @@ use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
 use charts_rs::{LineChart, Series};
-use chrono::offset::Local;
 use chrono::DateTime;
+use chrono::offset::Local;
 use csv::Writer;
 use git2::Repository;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::BTreeMap;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::path::Path;
-use std::collections::BTreeMap;
 
 pub struct ByFileArgs {
     path: String,
@@ -61,15 +61,15 @@ impl ByFileOutput {
 }
 
 impl FromIterator<ByFileOutput> for BTreeMap<String, Vec<f32>> {
-    fn from_iter<T: IntoIterator<Item = ByFileOutput>>(iter: T) -> Self 
-    where 
+    fn from_iter<T: IntoIterator<Item = ByFileOutput>>(iter: T) -> Self
+    where
         T: IntoIterator<Item = ByFileOutput>,
     {
         let mut map = BTreeMap::new();
         for item in iter {
-            map.entry(grit_utils::format_date( item.day))
-            .or_insert_with(Vec::new)
-            .push(item.loc as f32);
+            map.entry(grit_utils::format_date(item.day))
+                .or_insert_with(Vec::new)
+                .push(item.loc as f32);
         }
         map
     }
@@ -128,19 +128,17 @@ impl ByFile {
 
         let chart_map: BTreeMap<String, Vec<f32>> = BTreeMap::from_iter(data.clone());
 
-        let chart_data: Vec<Series> = chart_map.iter()
-        .map(|(k, v)| (Series::new(k.clone(), v.clone())))
-        .collect();
+        let chart_data: Vec<Series> = chart_map
+            .iter()
+            .map(|(k, v)| (Series::new(k.clone(), v.clone())))
+            .collect();
 
         let dates: Vec<String> = data
-        .iter()
-        .map(|d| grit_utils::format_date(d.day))
-        .collect();
+            .iter()
+            .map(|d| grit_utils::format_date(d.day))
+            .collect();
 
-        let mut line_chart = LineChart::new_with_theme(
-            chart_data,
-             dates,
-             "chaulk");
+        let mut line_chart = LineChart::new_with_theme(chart_data, dates, "chaulk");
 
         line_chart.width = width as f32;
         line_chart.height = height as f32;
@@ -148,13 +146,10 @@ impl ByFile {
         line_chart.margin.right = right as f32;
         line_chart.margin.bottom = bottom as f32;
         line_chart.margin.left = left as f32;
-        
-        line_chart.title_text = self.args.full_path_filename.clone();
-       
 
-        std::fs::write(Path::new(&f), line_chart.svg().unwrap())
-        .expect("Failed to create chart");    
-        
+        line_chart.title_text = self.args.full_path_filename.clone();
+
+        std::fs::write(Path::new(&f), line_chart.svg().unwrap()).expect("Failed to create chart");
 
         if self.args.html {
             grit_utils::create_html(&f).expect("failed to creat HTML page");
