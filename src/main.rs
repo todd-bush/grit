@@ -53,7 +53,7 @@ use crate::fame::{Fame, FameArgs};
 
 use anyhow::Result;
 use chrono::{DateTime, Local, NaiveDate, TimeZone};
-use clap::{Arg, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
 use std::str;
@@ -137,8 +137,8 @@ fn main() {
         .help("comma delimited of author's names to restrict")
         .long("restrict-author");
 
-    let arg_debug = Arg::new("debug").help("enables debug logging").short('d');
-    let arg_verbose = Arg::new("verbose").help("enables info logging").short('v');
+    let arg_debug = Arg::new("debug").help("enables debug logging").short('d').action(ArgAction::SetTrue);
+    let arg_verbose = Arg::new("verbose").help("enables info logging").short('v').action(ArgAction::SetTrue);
 
     let arg_file = Arg::new("file")
         .help("output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg")
