@@ -1,18 +1,19 @@
 use super::Processable;
 use crate::utils::grit_utils;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use charts_rs::{LineChart, Series};
-use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Utc, Weekday};
+use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Weekday};
 use csv::Writer;
 use git2::Repository;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::ops::Add;
 
+/// Configuration for the ByDate analysis
+#[derive(Debug)]
 pub struct ByDateArgs {
     path: String,
     file: Option<String>,
@@ -32,264 +33,212 @@ impl ByDateArgs {
         ignore_gap_fill: bool,
         html: bool,
         restrict_authors: Option<String>,
-    ) -> ByDateArgs {
-        ByDateArgs {
-            path: path,
-            file: file,
-            image: image,
-            ignore_weekends: ignore_weekends,
-            ignore_gap_fill: ignore_gap_fill,
-            html: html,
-            restrict_authors: restrict_authors,
+    ) -> Self {
+        Self {
+            path,
+            file,
+            image,
+            ignore_weekends,
+            ignore_gap_fill,
+            html,
+            restrict_authors,
         }
     }
 }
 
+/// Represents a single day's commit count
 #[derive(PartialOrd, PartialEq, Clone, Debug)]
-struct ByDateOutput {
+struct CommitDay {
     date: DateTime<Local>,
     count: f32,
 }
 
-impl ByDateOutput {
-    fn new(date: DateTime<Local>, count: f32) -> ByDateOutput {
-        ByDateOutput { date, count }
+impl CommitDay {
+    fn new(date: DateTime<Local>, count: f32) -> Self {
+        Self { date, count }
     }
 }
 
-impl FromIterator<ByDateOutput> for BTreeMap<String, Vec<f32>> {
-    fn from_iter<T: IntoIterator<Item = ByDateOutput>>(iter: T) -> Self
-    where
-        T: IntoIterator<Item = ByDateOutput>,
-    {
+/// Converts a collection of CommitDays into a BTreeMap for charting
+impl FromIterator<CommitDay> for BTreeMap<String, Vec<f32>> {
+    fn from_iter<T: IntoIterator<Item = CommitDay>>(iter: T) -> Self {
         let mut map = BTreeMap::new();
-        for item in iter {
-            map.entry(grit_utils::format_date(item.date.clone()))
+        for day in iter {
+            map.entry(grit_utils::format_date(day.date))
                 .or_insert_with(Vec::new)
-                .push(item.count.clone());
+                .push(day.count);
         }
         map
     }
 }
 
+/// Main ByDate analysis struct
 pub struct ByDate {
     args: ByDateArgs,
 }
 
 impl ByDate {
-    pub fn new(args: ByDateArgs) -> ByDate {
-        ByDate { args: args }
+    pub fn new(args: ByDateArgs) -> Self {
+        Self { args }
     }
 
-    fn process_date(&self) -> Result<Vec<ByDateOutput>> {
-        let end_date = DateTime::<Utc>::MAX_UTC;
-        let start_date = DateTime::<Utc>::MIN_UTC;
+    /// Processes git commits and returns a vector of CommitDays
+    fn process_commits(&self) -> Result<Vec<CommitDay>> {
+        let repo = Repository::open(&self.args.path)
+            .with_context(|| format!("Could not open repo at {}", self.args.path))?;
 
-        let restrict_authors =
-            grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
-
-        let end_date_sec = end_date
-            .date_naive()
-            .and_hms_opt(23, 59, 59)
-            .unwrap()
-            .and_utc()
-            .timestamp();
-        let start_date_sec = start_date
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_utc()
-            .timestamp();
-
-        let mut output_map: HashMap<DateTime<Local>, ByDateOutput> = HashMap::new();
-
-        let repo = Repository::open(&self.args.path).expect(format_tostr!(
-            "Could not open repo for path {}",
-            &self.args.path
-        ));
+        let restrict_authors = grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
+        let mut output_map: HashMap<DateTime<Local>, CommitDay> = HashMap::new();
 
         let mut revwalk = repo.revwalk()?;
-
-        revwalk
-            .set_sorting(git2::Sort::NONE | git2::Sort::TIME)
-            .expect("Could not sort revwalk");
-
+        revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME)?;
         revwalk.push_head()?;
 
-        let revwalk = revwalk.filter_map(|id| {
-            let id = filter_try!(id);
-            let commit = filter_try!(repo.find_commit(id));
+        for commit_id in revwalk {
+            let commit = repo.find_commit(commit_id?)?;
             let commit_time = commit.time().seconds();
 
             if self.args.ignore_weekends && self.is_weekend(commit_time) {
-                return None;
+                continue;
             }
 
-            if commit_time < start_date_sec {
-                return None;
-            }
-
-            if commit_time > end_date_sec {
-                return None;
-            }
-
-            if let Some(v) = &restrict_authors {
-                let name: String = commit.clone().author().name().unwrap().to_string();
-                if v.iter().any(|a| a == &name) {
-                    return None;
+            if let Some(authors) = &restrict_authors {
+                let author_name = commit.author().name().unwrap_or_default().to_string();
+                if authors.contains(&author_name) {
+                    continue;
                 }
             }
 
-            Some(Ok(commit))
-        });
-
-        debug!("filtering completed");
-
-        for commit in revwalk {
-            let commit = commit?;
-            let commit_time = &commit.time();
-            let dt = grit_utils::convert_git_time(commit_time);
-
-            let v = match output_map.entry(dt) {
-                Vacant(entry) => entry.insert(ByDateOutput::new(dt, 0.0)),
+            let dt = grit_utils::convert_git_time(&commit.time());
+            let entry = match output_map.entry(dt) {
+                Vacant(entry) => entry.insert(CommitDay::new(dt, 0.0)),
                 Occupied(entry) => entry.into_mut(),
             };
-
-            v.count += 1.0;
+            entry.count += 1.0;
         }
 
-        let mut output: Vec<ByDateOutput> = output_map.values().cloned().collect();
-
+        let mut output: Vec<CommitDay> = output_map.into_values().collect();
         output.sort_by(|a, b| a.date.cmp(&b.date));
 
-        if !&self.args.ignore_gap_fill {
+        if !self.args.ignore_gap_fill {
             output = self.fill_date_gaps(output);
         }
 
         Ok(output)
     }
 
+    /// Checks if a timestamp falls on a weekend
     fn is_weekend(&self, ts: i64) -> bool {
-        let d = Local.from_utc_datetime(&DateTime::from_timestamp(ts, 0).unwrap().naive_utc());
-        d.weekday() == Weekday::Sun || d.weekday() == Weekday::Sat
+        let dt = Local.from_utc_datetime(&DateTime::from_timestamp(ts, 0).unwrap().naive_utc());
+        dt.weekday() == Weekday::Sun || dt.weekday() == Weekday::Sat
     }
 
-    // Assigns a count of 0 to dates that don't have a commit.
-    fn fill_date_gaps(&self, input: Vec<ByDateOutput>) -> Vec<ByDateOutput> {
-        let mut processing_date: DateTime<Local> = input[0].date;
-        let end_date: DateTime<Local> = input[input.len() - 1].date;
-        let mut output = input;
-        let mut i = 0;
-
-        debug!("starting at : {:?}", processing_date);
-
-        loop {
-            if output[i].date != processing_date {
-                output.insert(i, ByDateOutput::new(processing_date, 0.0));
-            }
-
-            processing_date = processing_date.add(Duration::days(1));
-            i += 1;
-
-            if processing_date > end_date {
-                break;
-            }
+    /// Fills in missing dates with zero counts
+    fn fill_date_gaps(&self, input: Vec<CommitDay>) -> Vec<CommitDay> {
+        if input.is_empty() {
+            return input;
         }
 
+        let start_date = input[0].date;
+        let end_date = input[input.len() - 1].date;
+        let mut date_map: HashMap<DateTime<Local>, f32> = input
+            .into_iter()
+            .map(|day| (day.date, day.count))
+            .collect();
+
+        let mut current_date = start_date;
+        while current_date <= end_date {
+            date_map.entry(current_date).or_insert(0.0);
+            current_date = current_date.add(Duration::days(1));
+        }
+
+        let mut output: Vec<CommitDay> = date_map
+            .into_iter()
+            .map(|(date, count)| CommitDay::new(date, count))
+            .collect();
+        output.sort_by(|a, b| a.date.cmp(&b.date));
         output
     }
 
-    fn display_text_output(&self, output: Vec<ByDateOutput>) -> Result<()> {
-        let w = match &self.args.file {
-            Some(f) => {
-                let file = File::create(f)?;
-                Box::new(file) as Box<dyn Write>
-            }
-            None => Box::new(io::stdout()) as Box<dyn Write>,
+    /// Displays the commit data as text output
+    fn display_text_output(&self, output: Vec<CommitDay>) -> Result<()> {
+        let writer: Box<dyn Write> = match &self.args.file {
+            Some(f) => Box::new(File::create(f)?),
+            None => Box::new(io::stdout()),
         };
 
-        let mut wtr = Writer::from_writer(w);
-
+        let mut wtr = Writer::from_writer(writer);
         wtr.write_record(&["date", "count"])?;
 
         let mut total_count = 0.0;
+        for day in output.iter() {
+            wtr.serialize((grit_utils::format_date(day.date), day.count))?;
+            total_count += day.count;
+        }
 
-        output.iter().for_each(|r| {
-            wtr.serialize((grit_utils::format_date(r.date.clone()), r.count))
-                .expect("Cannot seralize table row");
-
-            total_count += r.count;
-        });
-
-        wtr.serialize(("Total", total_count))
-            .expect("Cannot Seralize Total Count Row");
-
-        wtr.flush().expect("Cannot flush writer");
+        wtr.serialize(("Total", total_count))?;
+        wtr.flush()?;
 
         Ok(())
     }
 
-    fn create_output_image(&self, output: Vec<ByDateOutput>) -> Result<()> {
-        let file = self
-            .args
-            .file
-            .clone()
-            .unwrap_or_else(|| String::from("commits.svg"));
-
-        let (width, height) = if output.len() > 60 {
-            (1920, 960)
-        } else if output.len() > 35 {
-            (1280, 960)
-        } else {
-            (1027, 768)
-        };
-
-        let (top, right, bottom, left) = (90, 40, 50, 60);
-
-        let data: Vec<(String, f32)> = output
-            .iter()
-            .map(|d| (grit_utils::format_date(d.date.clone()), d.count.clone()))
-            .collect();
-        let mut chart_map: BTreeMap<String, Vec<f32>> = BTreeMap::new();
-        for (date, count) in data {
-            chart_map.entry(date).or_insert_with(Vec::new).push(count);
-        }
-        let chart_data: Vec<Series> = chart_map
-            .iter()
-            .map(|(k, v)| (Series::new(k.clone(), v.clone())))
-            .collect();
+    /// Creates a chart from the commit data
+    fn create_chart(&self, output: Vec<CommitDay>) -> Result<()> {
+        let file = self.args.file.clone().unwrap_or_else(|| "commits.svg".to_string());
+        let (width, height) = self.calculate_chart_dimensions(output.len());
+        let margins = (90, 40, 50, 60);
 
         let dates: Vec<String> = output
             .iter()
             .map(|d| grit_utils::format_date(d.date))
             .collect();
 
-        let mut line_chart = LineChart::new_with_theme(chart_data, dates, "chaulk");
+        let chart_data: Vec<Series> = BTreeMap::from_iter(output)
+            .iter()
+            .map(|(k, v)| Series::new(k.clone(), v.clone()))
+            .collect();
 
-        line_chart.width = width as f32;
-        line_chart.height = height as f32;
-        line_chart.margin.top = top as f32;
-        line_chart.margin.right = right as f32;
-        line_chart.margin.bottom = bottom as f32;
-        line_chart.margin.left = left as f32;
-        line_chart.title_text = String::from("By Date");
+        let mut chart = LineChart::new_with_theme(chart_data, dates, "chaulk");
+        self.configure_chart(&mut chart, width, height, margins);
 
         if self.args.html {
-            grit_utils::create_html(&file).expect("Failed to make HTML file.");
+            grit_utils::create_html(&file)?;
         }
+
         Ok(())
+    }
+
+    /// Calculates appropriate chart dimensions based on data size
+    fn calculate_chart_dimensions(&self, data_points: usize) -> (u32, u32) {
+        match data_points {
+            n if n > 60 => (1920, 960),
+            n if n > 35 => (1280, 960),
+            _ => (1027, 768),
+        }
+    }
+
+    /// Configures chart properties
+    fn configure_chart(&self, chart: &mut LineChart, width: u32, height: u32, margins: (u32, u32, u32, u32)) {
+        chart.width = width as f32;
+        chart.height = height as f32;
+        chart.margin.top = margins.0 as f32;
+        chart.margin.right = margins.1 as f32;
+        chart.margin.bottom = margins.2 as f32;
+        chart.margin.left = margins.3 as f32;
+        chart.title_text = "By Date".to_string();
     }
 }
 
 impl Processable<()> for ByDate {
     fn process(&self) -> Result<()> {
-        let output = self.process_date()?;
+        let output = self.process_commits()?;
 
         if self.args.image {
-            self.create_output_image(output)?;
+            self.create_chart(output)?;
         } else {
             self.display_text_output(output)?;
         }
+
         Ok(())
     }
 }
@@ -473,9 +422,9 @@ mod tests {
 
         let bd = ByDate::new(args);
 
-        let test_data: Vec<ByDateOutput> = [
-            ByDateOutput::new(parse_date("2020-03-13"), 15.0),
-            ByDateOutput::new(parse_date("2020-03-16"), 45.0),
+        let test_data: Vec<CommitDay> = [
+            CommitDay::new(parse_date("2020-03-13"), 15.0),
+            CommitDay::new(parse_date("2020-03-16"), 45.0),
         ]
         .to_vec();
 
