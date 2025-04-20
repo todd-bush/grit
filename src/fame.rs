@@ -1,6 +1,6 @@
 use super::Processable;
 use crate::utils::grit_utils;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Local};
 use csv::Writer;
 use futures::future::join_all;
@@ -16,8 +16,9 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
-use tokio::task::JoinHandle;
 
+/// Configuration for the Fame analysis
+#[derive(Debug)]
 pub struct FameArgs {
     path: String,
     sort: Option<String>,
@@ -41,42 +42,44 @@ impl FameArgs {
         restrict_authors: Option<String>,
         csv: bool,
         file: Option<String>,
-    ) -> FameArgs {
-        FameArgs {
-            path: path,
-            sort: sort,
-            start_date: start_date,
-            end_date: end_date,
-            include: include,
-            exclude: exclude,
-            restrict_authors: restrict_authors,
-            csv: csv,
-            file: file,
+    ) -> Self {
+        Self {
+            path,
+            sort,
+            start_date,
+            end_date,
+            include,
+            exclude,
+            restrict_authors,
+            csv,
+            file,
         }
     }
 }
 
+/// Represents a single blame entry for a file
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-struct BlameOutput {
+struct BlameEntry {
     author: String,
     commit_id: String,
     lines: i32,
     file_name: String,
 }
 
-impl BlameOutput {
-    fn new(author: String, commit_id: String, file_name: String) -> BlameOutput {
-        BlameOutput {
-            author: author,
-            commit_id: commit_id,
+impl BlameEntry {
+    fn new(author: String, commit_id: String, file_name: String) -> Self {
+        Self {
+            author,
+            commit_id,
             lines: 0,
-            file_name: file_name,
+            file_name,
         }
     }
 }
 
+/// Represents the final output for an author
 #[derive(Clone)]
-struct FameOutputLine {
+struct AuthorStats {
     author: String,
     lines: i32,
     file_count: usize,
@@ -88,9 +91,9 @@ struct FameOutputLine {
     perc_commits: f64,
 }
 
-impl FameOutputLine {
-    fn new() -> FameOutputLine {
-        FameOutputLine {
+impl AuthorStats {
+    fn new() -> Self {
+        Self {
             author: String::new(),
             lines: 0,
             commits: HashSet::new(),
@@ -104,10 +107,7 @@ impl FameOutputLine {
     }
 }
 
-pub struct Fame {
-    args: FameArgs,
-}
-
+/// Processes git blame for a single file
 #[derive(Clone)]
 struct BlameProcessor {
     path: String,
@@ -120,99 +120,100 @@ impl BlameProcessor {
         path: String,
         earliest_commit: Option<Vec<u8>>,
         latest_commit: Option<Vec<u8>>,
-    ) -> BlameProcessor {
-        BlameProcessor {
-            path: path,
-            earliest_commit: earliest_commit,
-            latest_commit: latest_commit,
+    ) -> Self {
+        Self {
+            path,
+            earliest_commit,
+            latest_commit,
         }
     }
 
-    async fn process(&self, file_name: String) -> Result<Vec<BlameOutput>> {
-        let repo = Repository::open(&self.path)?;
+    async fn process(&self, file_name: String) -> Result<Vec<BlameEntry>> {
+        let repo = Repository::open(&self.path)
+            .with_context(|| format!("Failed to open repository at {}", self.path))?;
+        
         let file_path = Path::new(&file_name);
         let start = Instant::now();
 
-        let mut bo = BlameOptions::new();
-
+        let mut options = BlameOptions::new();
+        
         if let Some(ev) = &self.earliest_commit {
-            let oid: Oid = Oid::from_bytes(&ev)?;
-            bo.oldest_commit(oid);
-        };
+            let oid = Oid::from_bytes(ev)?;
+            options.oldest_commit(oid);
+        }
 
         if let Some(ov) = &self.latest_commit {
-            let oid: Oid = Oid::from_bytes(&ov)?;
-            bo.newest_commit(oid);
-        };
+            let oid = Oid::from_bytes(ov)?;
+            options.newest_commit(oid);
+        }
 
-        let blame = repo.blame_file(file_path, Some(&mut bo))?;
-
-        let mut blame_map: HashMap<String, BlameOutput> = HashMap::new();
+        let blame = repo.blame_file(file_path, Some(&mut options))?;
+        let mut blame_map: HashMap<String, BlameEntry> = HashMap::new();
 
         for hunk in blame.iter() {
             let sig = hunk.final_signature();
-            let signame = String::from_utf8_lossy(sig.name_bytes()).to_string();
-            let f_commit = hunk.final_commit_id().to_string();
-            let blame_key = &[&signame, "-", &f_commit].join("");
+            let author = String::from_utf8_lossy(sig.name_bytes()).to_string();
+            let commit_id = hunk.final_commit_id().to_string();
+            let blame_key = format!("{}-{}", author, commit_id);
 
-            let v = match blame_map.entry(blame_key.to_string()) {
-                Vacant(entry) => {
-                    entry.insert(BlameOutput::new(signame, f_commit, file_name.clone()))
-                }
+            let entry = match blame_map.entry(blame_key) {
+                Vacant(entry) => entry.insert(BlameEntry::new(author, commit_id, file_name.clone())),
                 Occupied(entry) => entry.into_mut(),
             };
 
-            v.lines += hunk.lines_in_hunk() as i32;
+            entry.lines += hunk.lines_in_hunk() as i32;
         }
 
-        let result: Vec<BlameOutput> = blame_map.values().cloned().collect();
-
-        info!("Processed {} in {:?}", &file_name, start.elapsed());
+        let result: Vec<BlameEntry> = blame_map.into_values().collect();
+        info!("Processed {} in {:?}", file_name, start.elapsed());
 
         Ok(result)
     }
 }
 
+/// Main Fame analysis struct
+pub struct Fame {
+    args: FameArgs,
+}
+
 impl Fame {
     pub fn new(args: FameArgs) -> Self {
-        Fame { args: args }
+        Self { args }
     }
 
-    fn pretty_print_table(
+    fn print_table(
         &self,
-        output: Vec<FameOutputLine>,
-        tot_loc: i32,
-        tot_files: usize,
-        tot_commits: usize,
+        output: Vec<AuthorStats>,
+        total_lines: i32,
+        total_files: usize,
+        total_commits: usize,
     ) -> Result<()> {
         println!("Stats on Repo");
-        println!("Total files: {}", tot_files);
-        println!("Total commits: {}", tot_commits);
-        println!("Total LOC: {}", tot_loc);
+        println!("Total files: {}", total_files);
+        println!("Total commits: {}", total_commits);
+        println!("Total LOC: {}", total_lines);
 
         let mut table = Table::new();
+        table.set_titles(row!["Author", "Files", "Commits", "LOC", "Distribution (%)"]);
 
-        table.set_titles(row![
-            "Author",
-            "Files",
-            "Commits",
-            "LOC",
-            "Distribution (%)"
-        ]);
-
-        for o in output.iter() {
-            let pf = format!("{:.1}", o.perc_files * 100.0);
-            let pc = format!("{:.1}", o.perc_commits * 100.0);
-            let pl = format!("{:.1}", o.perc_lines * 100.0);
-            let s = format!(
-                "{pf:<width$} / {pc:<width$} / {pl:<width$}",
-                pf = pf,
-                pc = pc,
-                pl = pl,
-                width = 5
+        for stats in output.iter() {
+            let files_pct = format!("{:.1}", stats.perc_files * 100.0);
+            let commits_pct = format!("{:.1}", stats.perc_commits * 100.0);
+            let lines_pct = format!("{:.1}", stats.perc_lines * 100.0);
+            let distribution = format!(
+                "{files_pct:<5} / {commits_pct:<5} / {lines_pct:<5}",
+                files_pct = files_pct,
+                commits_pct = commits_pct,
+                lines_pct = lines_pct
             );
 
-            table.add_row(row![o.author, o.file_count, o.commits_count, o.lines, s]);
+            table.add_row(row![
+                stats.author,
+                stats.file_count,
+                stats.commits_count,
+                stats.lines,
+                distribution
+            ]);
         }
 
         table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
@@ -221,17 +222,13 @@ impl Fame {
         Ok(())
     }
 
-    fn csv_output(&self, output: Vec<FameOutputLine>, file_name: Option<String>) -> Result<()> {
-        let w = match file_name {
-            Some(f) => {
-                let file = File::create(f)?;
-                Box::new(file) as Box<dyn Write>
-            }
-            None => Box::new(io::stdout()) as Box<dyn Write>,
+    fn write_csv(&self, output: Vec<AuthorStats>, file_name: Option<String>) -> Result<()> {
+        let writer: Box<dyn Write> = match file_name {
+            Some(f) => Box::new(File::create(f)?),
+            None => Box::new(io::stdout()),
         };
 
-        let mut wrt = Writer::from_writer(w);
-
+        let mut wrt = Writer::from_writer(writer);
         wrt.write_record(&[
             "Author",
             "Files",
@@ -240,29 +237,123 @@ impl Fame {
             "Distribution (%) - Files",
             "Distribution (%) - Commits",
             "Distribution (%) - LoC",
-        ])
-        .expect("Cannot write header row");
+        ])?;
 
-        output.iter().for_each(|r| {
-            let pf = format!("{:.1}", r.perc_files * 100.0);
-            let pc = format!("{:.1}", r.perc_commits * 100.0);
-            let pl = format!("{:.1}", r.perc_lines * 100.0);
-
+        for stats in output.iter() {
             wrt.serialize([
-                r.author.clone(),
-                r.file_count.to_string(),
-                r.commits_count.to_string(),
-                r.lines.to_string(),
-                pf,
-                pc,
-                pl,
-            ])
-            .expect("Could not write CSV row");
-        });
+                stats.author.clone(),
+                stats.file_count.to_string(),
+                stats.commits_count.to_string(),
+                stats.lines.to_string(),
+                format!("{:.1}", stats.perc_files * 100.0),
+                format!("{:.1}", stats.perc_commits * 100.0),
+                format!("{:.1}", stats.perc_lines * 100.0),
+            ])?;
+        }
 
-        wrt.flush().expect("Cannot flush CVS buffer");
-
+        wrt.flush()?;
         Ok(())
+    }
+
+    async fn process_files(
+        &self,
+        file_names: Vec<String>,
+        earliest_commit: Option<Vec<u8>>,
+        latest_commit: Option<Vec<u8>>,
+    ) -> Result<Vec<BlameEntry>> {
+        let processor = BlameProcessor::new(
+            self.args.path.clone(),
+            earliest_commit,
+            latest_commit,
+        );
+
+        let progress = ProgressBar::new(file_names.len() as u64);
+        let progress = Arc::new(RwLock::new(progress));
+
+        let mut tasks = Vec::new();
+
+        for file_name in file_names {
+            let processor = processor.clone();
+            let progress = progress.clone();
+
+            tasks.push(tokio::spawn(async move {
+                processor.process(file_name.clone())
+                    .await
+                    .map(|result| {
+                        progress.write().unwrap().inc(1);
+                        result
+                    })
+                    .map_err(|err| {
+                        error!("Error processing file {}: {}", file_name, err);
+                        err
+                    })
+            }));
+        }
+
+        let results = join_all(tasks).await;
+        let blame_entries: Vec<BlameEntry> = results
+            .into_iter()
+            .filter_map(|r| r.ok())
+            .filter_map(|r| r.ok())
+            .flatten()
+            .collect();
+
+        progress.write().unwrap().finish();
+        Ok(blame_entries)
+    }
+
+    fn calculate_stats(
+        &self,
+        blame_entries: Vec<BlameEntry>,
+        restrict_authors: Option<Vec<String>>,
+    ) -> (Vec<AuthorStats>, i32, usize, usize) {
+        let mut author_stats: HashMap<String, AuthorStats> = HashMap::new();
+        let mut total_commits = HashSet::new();
+        let mut total_lines = 0;
+
+        for entry in blame_entries {
+            if let Some(ra) = &restrict_authors {
+                if ra.contains(&entry.author) {
+                    continue;
+                }
+            }
+
+            let stats = match author_stats.entry(entry.author.clone()) {
+                Vacant(e) => e.insert(AuthorStats::new()),
+                Occupied(e) => e.into_mut(),
+            };
+
+            stats.commits.insert(entry.commit_id.clone());
+            total_commits.insert(entry.commit_id);
+            stats.filenames.insert(entry.file_name);
+            stats.lines += entry.lines;
+            total_lines += entry.lines;
+        }
+
+        let total_files = author_stats.values()
+            .map(|s| s.filenames.len())
+            .sum();
+
+        let mut output: Vec<AuthorStats> = author_stats
+            .into_iter()
+            .map(|(author, mut stats)| {
+                stats.author = author;
+                stats.commits_count = stats.commits.len() as i32;
+                stats.file_count = stats.filenames.len();
+                stats.perc_files = stats.file_count as f64 / total_files as f64;
+                stats.perc_commits = stats.commits_count as f64 / total_commits.len() as f64;
+                stats.perc_lines = stats.lines as f64 / total_lines as f64;
+                stats
+            })
+            .collect();
+
+        match self.args.sort.as_deref() {
+            Some("loc") => output.sort_by(|a, b| b.lines.cmp(&a.lines)),
+            Some("files") => output.sort_by(|a, b| b.file_count.cmp(&a.file_count)),
+            _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
+        }
+
+        (output, total_lines, total_files, total_commits.len())
     }
 }
 
@@ -274,121 +365,32 @@ impl Processable<()> for Fame {
             self.args.end_date,
         )?;
 
-        info!("Early, Late: {:?}, {:?}", earliest_commit, latest_commit);
+        info!("Commit range: {:?} to {:?}", earliest_commit, latest_commit);
 
-        let restrict_authors: Option<Vec<String>> =
-            grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
-
-        let file_names: Vec<String> = grit_utils::generate_file_list(
+        let restrict_authors = grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
+        let file_names = grit_utils::generate_file_list(
             &self.args.path,
             self.args.include.clone(),
             self.args.exclude.clone(),
         )?;
 
-        let bp = BlameProcessor::new(
-            self.args.path.clone(),
-            earliest_commit.clone(),
-            latest_commit.clone(),
-        );
-
-        let pgb = ProgressBar::new(file_names.len() as u64);
-        let arc_pgb = Arc::new(RwLock::new(pgb));
-
         let rt = tokio::runtime::Builder::new_current_thread()
             .build()
-            .unwrap();
+            .context("Failed to create tokio runtime")?;
 
-        let mut tasks: Vec<JoinHandle<Result<Vec<BlameOutput>, ()>>> = vec![];
+        let blame_entries = rt.block_on(self.process_files(
+            file_names,
+            earliest_commit,
+            latest_commit,
+        ))?;
 
-        for file_name in file_names.iter() {
-            let file_name = file_name.clone();
-            let bp = bp.clone();
-            let arc_pgb_c = arc_pgb.clone();
-
-            info!("processing file {}", file_name);
-            tasks.push(rt.spawn(async move {
-                bp.process(String::from(&file_name))
-                    .await
-                    .map(|pr| {
-                        arc_pgb_c
-                            .write()
-                            .expect("cannot open progress bar for write")
-                            .inc(1);
-                        pr
-                    })
-                    .map_err(|err| error!("Error in processing file: {}", err))
-            }));
-        }
-
-        let jh_results = rt.block_on(join_all(tasks));
-
-        arc_pgb
-            .write()
-            .expect("cannot open progress bar for write")
-            .finish();
-
-        let collector: Vec<Vec<BlameOutput>> = jh_results
-            .into_iter()
-            .map(|jh| jh.unwrap().unwrap().clone())
-            .collect();
-
-        let max_files = collector.len();
-
-        let blame_outputs: Vec<BlameOutput> = collector.into_iter().flatten().collect();
-
-        let mut max_lines = 0;
-        let mut output_map: HashMap<String, FameOutputLine> = HashMap::new();
-        let mut total_commits: HashSet<String> = HashSet::new();
-
-        for v in blame_outputs.iter() {
-            if let Some(ra) = &restrict_authors {
-                if ra.contains(&v.author) {
-                    break;
-                }
-            }
-
-            let om = match output_map.entry(v.author.clone()) {
-                Vacant(entry) => entry.insert(FameOutputLine::new()),
-                Occupied(entry) => entry.into_mut(),
-            };
-
-            om.commits.insert(v.commit_id.clone());
-            total_commits.insert(v.commit_id.clone());
-            om.filenames.insert(v.file_name.clone());
-            om.lines += v.lines;
-            max_lines += v.lines;
-        }
-
-        let max_commits = total_commits.len();
-
-        info!(
-            "Max files/commits/lines: {} {} {}",
-            max_files, max_commits, max_lines
-        );
-
-        let mut output: Vec<FameOutputLine> = output_map
-            .iter_mut()
-            .map(|(key, val)| {
-                val.commits_count = val.commits.len() as i32;
-                val.file_count = val.filenames.len();
-                val.author = String::from(key);
-                val.perc_files = (val.file_count) as f64 / (max_files) as f64;
-                val.perc_commits = (val.commits_count) as f64 / (max_commits) as f64;
-                val.perc_lines = (val.lines) as f64 / (max_lines) as f64;
-                val.clone()
-            })
-            .collect();
-
-        match self.args.sort {
-            Some(ref x) if x == "loc" => output.sort_by(|a, b| b.lines.cmp(&a.lines)),
-            Some(ref x) if x == "files" => output.sort_by(|a, b| b.file_count.cmp(&a.file_count)),
-            _ => output.sort_by(|a, b| b.commits_count.cmp(&a.commits_count)),
-        }
+        let (output, total_lines, total_files, total_commits) = 
+            self.calculate_stats(blame_entries, restrict_authors);
 
         if self.args.csv {
-            self.csv_output(output, self.args.file.clone())?;
+            self.write_csv(output, self.args.file.clone())?;
         } else {
-            self.pretty_print_table(output, max_lines, max_files, max_commits)?;
+            self.print_table(output, total_lines, total_files, total_commits)?;
         }
 
         Ok(())
