@@ -346,7 +346,7 @@ pub mod grit_utils {
 
             let (early, late) = find_commit_range(path, Some(ed), None).unwrap();
 
-            //info!("early = {:?}", early.unwrap());
+            //info!("early = {:?}", early.as_ref());
 
             assert!(early.unwrap().len() > 0);
             assert_eq!(late, None);
