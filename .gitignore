@@ -20,3 +20,4 @@ to_file.html
 .vscode/
 
 .DS_Store
+vendor/
