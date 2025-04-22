@@ -207,7 +207,7 @@ pub mod grit_utils {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use chrono::{Local, NaiveDate, TimeZone};
+        use chrono::{Local, NaiveDate, TimeZone, Months};
         use log::LevelFilter;
         use tempfile::TempDir;
 
@@ -297,6 +297,29 @@ pub mod grit_utils {
 
             assert_eq!(early, None);
             assert_eq!(late, None);
+        
+        }
+
+        #[test]
+        fn test_find_commit_range_here() {
+            crate::grit_test::set_test_logging(LevelFilter::Info);
+
+            let end_date_str: String = "2025-04-20 21:02:20.346474121 +0400".to_string();
+
+            let es = Local::now().checked_add_months(Months::new(360)).unwrap();
+            let et = end_date_str.parse::<DateTime<Local>>().unwrap();
+
+            let (early, late) = find_commit_range(
+                ".",
+                Option::Some(es), 
+                Option::Some(et)).unwrap();
+
+
+
+            info!("late = {:?}", late.as_ref());
+
+            assert_eq!(early, None);
+            assert_eq!(late.as_ref(), Some(&vec![90u8, 203, 196, 11, 12, 24, 251, 18, 145, 168, 139, 110, 201, 124, 248, 73, 180, 18, 90, 119]));
         }
 
         #[test]
