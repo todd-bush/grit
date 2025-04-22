@@ -66,36 +66,19 @@ pub mod grit_utils {
 
         let file_names: Vec<String> = statuses
             .iter()
-            .filter_map(|se| {
-                let s = se
-                    .path()
-                    .expect("Cannot create string from path")
-                    .to_string();
+            .filter_map(|se| se.path().map(|p| p.to_string()))
+            .filter(|s| {
+                let include_match = includes
+                    .as_ref()
+                    .map(|patterns| patterns.iter().any(|p| p.matches(s)))
+                    .unwrap_or(true);
+                
+                let exclude_match = excludes
+                    .as_ref()
+                    .map(|patterns| patterns.iter().any(|p| p.matches(s)))
+                    .unwrap_or(false);
 
-                let result = match &includes {
-                    Some(il) => {
-                        if il.iter().any(|p| p.matches(&s)) {
-                            Some(s)
-                        } else {
-                            None
-                        }
-                    }
-                    None => Some(s),
-                };
-                result
-            })
-            .filter_map(|s| {
-                let result = if let Some(el) = &excludes {
-                    if el.iter().any(|p| p.matches(&s)) {
-                        None
-                    } else {
-                        Some(s)
-                    }
-                } else {
-                    Some(s)
-                };
-
-                result
+                include_match && !exclude_match
             })
             .collect();
 
