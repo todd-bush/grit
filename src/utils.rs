@@ -17,7 +17,7 @@ macro_rules! format_tostr {
 
 pub mod grit_utils {
 
-    use anyhow::Result;
+    use anyhow::{Context, Result};
     use chrono::{DateTime, Datelike, Local, NaiveDateTime, NaiveTime, Utc};
     use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
@@ -44,27 +44,25 @@ pub mod grit_utils {
 
         let statuses = repo.statuses(Some(&mut status_opts))?;
 
-        let includes: Option<Vec<Pattern>> = match include {
-            Some(e) => Some(
-                e.split(',')
-                    .map(|s| {
-                        Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s))
-                    })
-                    .collect(),
-            ),
-            None => None,
-        };
+        let includes: Option<Vec<Pattern>> = include
+            .as_deref()
+            .map(|s| s.split(','))
+            .map(|patterns| {
+                patterns
+                    .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {}", s)))
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?;
 
-        let excludes: Option<Vec<Pattern>> = match exclude {
-            Some(e) => Some(
-                e.split(',')
-                    .map(|s| {
-                        Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s))
-                    })
-                    .collect(),
-            ),
-            None => None,
-        };
+        let excludes: Option<Vec<Pattern>> = exclude
+            .as_deref()
+            .map(|s| s.split(','))
+            .map(|patterns| {
+                patterns
+                    .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {}", s)))
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?;
 
         let file_names: Vec<String> = statuses
             .iter()
