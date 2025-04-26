@@ -35,6 +35,7 @@ extern crate tokio;
 #[macro_use]
 mod utils;
 
+mod git_utils;
 mod by_date;
 mod by_file;
 mod effort;
