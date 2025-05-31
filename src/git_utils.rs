@@ -116,7 +116,7 @@ pub mod git_utils {
             commit_range.latest = Some(r.unwrap().as_bytes().iter().map(|b| *b).collect());
         }
 
-        if start_date.is_none() && end_date.is_none() {
+        if start_date.is_none() || end_date.is_none() {
             let mut revwalk = repo.revwalk()?;
             revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME)?;
             revwalk.push_head()?;
@@ -130,8 +130,9 @@ pub mod git_utils {
                     let start_date_sec = d.timestamp();
                     if commit_time >= start_date_sec {
                         commit_range.earliest = Some(oid.as_bytes().iter().map(|b| *b).collect());
-                    } else {
-                        break;
+                        if end_date.is_some() {
+                            break;
+                        }
                     }
                 }
 
@@ -139,6 +140,9 @@ pub mod git_utils {
                     let end_date_sec = d.timestamp();
                     if commit_time <= end_date_sec {
                         commit_range.latest = Some(oid.as_bytes().iter().map(|b| *b).collect());
+                        if start_date.is_some() {
+                            break;
+                        }
                     }
                 }
             }
@@ -207,6 +211,43 @@ pub mod git_utils {
             info!("commit_range: {:?}", commit_range);
 
             assert_ne!(commit_range.earliest, commit_range.latest);
+        }
+
+        #[test]
+        fn test_find_commit_range_with_start_date() {
+            crate::grit_test::set_test_logging(LOG_LEVEL);
+            let repo = get_repo(DIR).unwrap();
+            let commit_range = find_commit_range(&repo, Some(Local::now()), None).unwrap();
+
+            info!("commit_range: {:?}", commit_range);
+
+            assert!(commit_range.earliest.is_some());
+        }
+
+        #[test]
+        fn test_find_commit_range_with_end_date() {
+            crate::grit_test::set_test_logging(LOG_LEVEL);
+            let repo = get_repo(DIR).unwrap();
+            let commit_range = find_commit_range(&repo, None, Some(Local::now())).unwrap();
+
+            info!("commit_range: {:?}", commit_range);
+
+            assert!(commit_range.latest.is_some());
+        }
+
+        #[test]
+        fn test_find_commit_range_with_start_and_end_date() {
+            crate::grit_test::set_test_logging(LOG_LEVEL);
+            let start_date_str = "2020-10-10 21:02:20.346474121 UTC";
+            let start_date = start_date_str.parse::<DateTime<Local>>().unwrap();
+            let repo = get_repo(DIR).unwrap();
+            let commit_range =
+                find_commit_range(&repo, Some(start_date), Some(Local::now())).unwrap();
+
+            info!("commit_range: {:?}", commit_range);
+
+            assert!(commit_range.earliest.is_some());
+            assert!(commit_range.latest.is_some());
         }
     }
 }
