@@ -138,16 +138,18 @@ pub mod grit_utils {
         ext.eq_ignore_ascii_case(file_ext)
     }
 
+    type CommitRange = (Option<Vec<u8>>, Option<Vec<u8>>);
+
     pub fn find_commit_range(
         repo_path: &str,
         start_date: Option<DateTime<Local>>,
         end_date: Option<DateTime<Local>>,
-    ) -> GenResult<(Option<Vec<u8>>, Option<Vec<u8>>)> {
+    ) -> GenResult<CommitRange> {
         let mut earliest_commit = None;
         let mut latest_commit = None;
 
         let repo = Repository::open(repo_path)
-            .expect(format_tostr!("Could not open repo for path {}", repo_path));
+            .unwrap_or_else(|_| panic!("Could not open repo for path {repo_path}"));
 
         if let Some(d) = start_date {
             let start_date_sec =

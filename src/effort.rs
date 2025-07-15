@@ -213,7 +213,7 @@ impl Processable<()> for Effort {
             tasks.push(rt.spawn(async move {
                 ep.process_file(&file_name.clone())
                     .await
-                    .inspect(|e| {
+                    .inspect(|_e| {
                         arc_pgb_c
                             .write()
                             .expect("cannot open ProgressBar to write")

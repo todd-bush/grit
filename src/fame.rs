@@ -32,6 +32,7 @@ pub struct FameArgs {
 }
 
 impl FameArgs {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         path: String,
         sort: Option<String>,
@@ -275,7 +276,7 @@ impl Fame {
                 processor
                     .process(file_name.clone())
                     .await
-                    .inspect(|result| {
+                    .inspect(|_result| {
                         progress.write().unwrap().inc(1);
                     })
                     .map_err(|err| {
