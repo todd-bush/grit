@@ -14,7 +14,6 @@ updates:
       - "toddbush"
     commit-message:
       prefix: "chore"
-      include: "scope"
     labels:
       - "dependencies"
       - "rust"
@@ -23,4 +22,7 @@ updates:
       - dependency-name: "git2"
         update-types: ["version-update:semver-major"]
       - dependency-name: "chrono"
+        update-types: ["version-update:semver-major"]
+      # Ignore development dependencies that might cause issues
+      - dependency-name: "cargo-tarpaulin"
         update-types: ["version-update:semver-major"] 
