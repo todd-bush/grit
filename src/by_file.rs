@@ -92,10 +92,12 @@ impl ByFile {
             .with_context(|| format!("Failed to open repository at {}", self.args.path))?;
 
         let path = Path::new(&self.args.full_path_filename);
-        let restrict_authors = grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
+        let restrict_authors =
+            grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
         let mut author_contributions: HashMap<String, FileContribution> = HashMap::new();
 
-        let blame = repo.blame_file(path, None)
+        let blame = repo
+            .blame_file(path, None)
             .with_context(|| format!("Failed to blame file {}", self.args.full_path_filename))?;
 
         for hunk in blame.iter() {
@@ -149,7 +151,10 @@ impl ByFile {
 
     /// Creates and displays a chart of the results
     fn display_image(&self, data: Vec<FileContribution>) -> Result<()> {
-        let output_file = self.args.output_file.as_ref()
+        let output_file = self
+            .args
+            .output_file
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Output file is required for image generation"))?;
 
         let (width, height) = self.calculate_chart_dimensions(data.len());
@@ -187,7 +192,13 @@ impl ByFile {
     }
 
     /// Configures chart properties
-    fn configure_chart(&self, chart: &mut LineChart, width: u32, height: u32, margins: (u32, u32, u32, u32)) {
+    fn configure_chart(
+        &self,
+        chart: &mut LineChart,
+        width: u32,
+        height: u32,
+        margins: (u32, u32, u32, u32),
+    ) {
         chart.width = width as f32;
         chart.height = height as f32;
         chart.margin.top = margins.0 as f32;

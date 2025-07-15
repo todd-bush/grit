@@ -5,8 +5,8 @@ use charts_rs::{LineChart, Series};
 use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Weekday};
 use csv::Writer;
 use git2::Repository;
-use std::collections::{BTreeMap, HashMap};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io;
 use std::io::Write;
@@ -87,7 +87,8 @@ impl ByDate {
         let repo = Repository::open(&self.args.path)
             .with_context(|| format!("Could not open repo at {}", self.args.path))?;
 
-        let restrict_authors = grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
+        let restrict_authors =
+            grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
         let mut output_map: HashMap<DateTime<Local>, CommitDay> = HashMap::new();
 
         let mut revwalk = repo.revwalk()?;
@@ -141,10 +142,8 @@ impl ByDate {
 
         let start_date = input[0].date;
         let end_date = input[input.len() - 1].date;
-        let mut date_map: HashMap<DateTime<Local>, f32> = input
-            .into_iter()
-            .map(|day| (day.date, day.count))
-            .collect();
+        let mut date_map: HashMap<DateTime<Local>, f32> =
+            input.into_iter().map(|day| (day.date, day.count)).collect();
 
         let mut current_date = start_date;
         while current_date <= end_date {
@@ -184,7 +183,11 @@ impl ByDate {
 
     /// Creates a chart from the commit data
     fn create_chart(&self, output: Vec<CommitDay>) -> Result<()> {
-        let file = self.args.file.clone().unwrap_or_else(|| "commits.svg".to_string());
+        let file = self
+            .args
+            .file
+            .clone()
+            .unwrap_or_else(|| "commits.svg".to_string());
         let (width, height) = self.calculate_chart_dimensions(output.len());
         let margins = (90, 40, 50, 60);
 
@@ -218,7 +221,13 @@ impl ByDate {
     }
 
     /// Configures chart properties
-    fn configure_chart(&self, chart: &mut LineChart, width: u32, height: u32, margins: (u32, u32, u32, u32)) {
+    fn configure_chart(
+        &self,
+        chart: &mut LineChart,
+        width: u32,
+        height: u32,
+        margins: (u32, u32, u32, u32),
+    ) {
         chart.width = width as f32;
         chart.height = height as f32;
         chart.margin.top = margins.0 as f32;

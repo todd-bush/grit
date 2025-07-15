@@ -35,19 +35,19 @@ extern crate tokio;
 #[macro_use]
 mod utils;
 
-mod git_utils;
 mod by_date;
 mod by_file;
+mod cli;
 mod effort;
 mod fame;
-mod cli;
+mod git_utils;
 
 #[cfg(test)]
 #[macro_use]
 mod grit_test;
 
-pub use crate::utils::grit_utils;
 use crate::cli::Cli;
+pub use crate::utils::grit_utils;
 use anyhow::Result;
 use clap::Parser;
 use log::LevelFilter;
@@ -82,4 +82,3 @@ fn set_logging(debug: bool, verbose: bool) {
 
     SimpleLogger::new().with_level(level).init().unwrap();
 }
-

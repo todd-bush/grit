@@ -49,7 +49,9 @@ pub mod grit_utils {
             .map(|s| s.split(','))
             .map(|patterns| {
                 patterns
-                    .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}")))
+                    .map(|s| {
+                        Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}"))
+                    })
                     .collect::<Result<Vec<_>>>()
             })
             .transpose()?;
@@ -59,7 +61,9 @@ pub mod grit_utils {
             .map(|s| s.split(','))
             .map(|patterns| {
                 patterns
-                    .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}")))
+                    .map(|s| {
+                        Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}"))
+                    })
                     .collect::<Result<Vec<_>>>()
             })
             .transpose()?;
@@ -72,7 +76,7 @@ pub mod grit_utils {
                     .as_ref()
                     .map(|patterns| patterns.iter().any(|p| p.matches(s)))
                     .unwrap_or(true);
-                
+
                 let exclude_match = excludes
                     .as_ref()
                     .map(|patterns| patterns.iter().any(|p| p.matches(s)))
@@ -86,7 +90,8 @@ pub mod grit_utils {
     }
 
     pub fn convert_string_list_to_vec(input: Option<String>) -> Option<Vec<String>> {
-        let result: Option<Vec<String>> = input.map(|s| s.split(",").map(|e| e.to_string()).collect());
+        let result: Option<Vec<String>> =
+            input.map(|s| s.split(",").map(|e| e.to_string()).collect());
 
         result
     }
@@ -116,9 +121,8 @@ pub mod grit_utils {
         };
 
         let html_file = format!("{}{}", file_base, ".html");
-        let html_output = format!(
-            "<html><head></head><body><img src=\"{filename}\"/></body></html>"
-        );
+        let html_output =
+            format!("<html><head></head><body><img src=\"{filename}\"/></body></html>");
 
         let mut output = File::create(html_file).expect("HTML file creation failed");
         output
@@ -200,7 +204,7 @@ pub mod grit_utils {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use chrono::{Local, NaiveDate, TimeZone, Months};
+        use chrono::{Local, Months, NaiveDate, TimeZone};
         use log::LevelFilter;
         use tempfile::TempDir;
 
@@ -290,7 +294,6 @@ pub mod grit_utils {
 
             assert_eq!(early, None);
             assert_eq!(late, None);
-        
         }
 
         #[test]
@@ -302,17 +305,18 @@ pub mod grit_utils {
             let es = Local::now().checked_add_months(Months::new(360)).unwrap();
             let et = end_date_str.parse::<DateTime<Local>>().unwrap();
 
-            let (early, late) = find_commit_range(
-                ".",
-                Option::Some(es), 
-                Option::Some(et)).unwrap();
-
-
+            let (early, late) = find_commit_range(".", Option::Some(es), Option::Some(et)).unwrap();
 
             info!("late = {:?}", late.as_ref());
 
             assert_eq!(early, None);
-            assert_eq!(late.as_ref(), Some(&vec![90u8, 203, 196, 11, 12, 24, 251, 18, 145, 168, 139, 110, 201, 124, 248, 73, 180, 18, 90, 119]));
+            assert_eq!(
+                late.as_ref(),
+                Some(&vec![
+                    90u8, 203, 196, 11, 12, 24, 251, 18, 145, 168, 139, 110, 201, 124, 248, 73,
+                    180, 18, 90, 119
+                ])
+            );
         }
 
         #[test]

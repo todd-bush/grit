@@ -116,11 +116,7 @@ struct BlameProcessor {
 }
 
 impl BlameProcessor {
-    fn new(
-        path: String,
-        earliest_commit: Option<Vec<u8>>,
-        latest_commit: Option<Vec<u8>>,
-    ) -> Self {
+    fn new(path: String, earliest_commit: Option<Vec<u8>>, latest_commit: Option<Vec<u8>>) -> Self {
         Self {
             path,
             earliest_commit,
@@ -131,12 +127,12 @@ impl BlameProcessor {
     async fn process(&self, file_name: String) -> Result<Vec<BlameEntry>> {
         let repo = Repository::open(&self.path)
             .with_context(|| format!("Failed to open repository at {}", self.path))?;
-        
+
         let file_path = Path::new(&file_name);
         let start = Instant::now();
 
         let mut options = BlameOptions::new();
-        
+
         if let Some(ev) = &self.earliest_commit {
             let oid = Oid::from_bytes(ev)?;
             options.oldest_commit(oid);
@@ -157,7 +153,9 @@ impl BlameProcessor {
             let blame_key = format!("{author}-{commit_id}");
 
             let entry = match blame_map.entry(blame_key) {
-                Vacant(entry) => entry.insert(BlameEntry::new(author, commit_id, file_name.clone())),
+                Vacant(entry) => {
+                    entry.insert(BlameEntry::new(author, commit_id, file_name.clone()))
+                }
                 Occupied(entry) => entry.into_mut(),
             };
 
@@ -194,15 +192,19 @@ impl Fame {
         println!("Total LOC: {total_lines}");
 
         let mut table = Table::new();
-        table.set_titles(row!["Author", "Files", "Commits", "LOC", "Distribution (%)"]);
+        table.set_titles(row![
+            "Author",
+            "Files",
+            "Commits",
+            "LOC",
+            "Distribution (%)"
+        ]);
 
         for stats in output.iter() {
             let files_pct = format!("{:.1}", stats.perc_files * 100.0);
             let commits_pct = format!("{:.1}", stats.perc_commits * 100.0);
             let lines_pct = format!("{:.1}", stats.perc_lines * 100.0);
-            let distribution = format!(
-                "{files_pct:<5} / {commits_pct:<5} / {lines_pct:<5}"
-            );
+            let distribution = format!("{files_pct:<5} / {commits_pct:<5} / {lines_pct:<5}");
 
             table.add_row(row![
                 stats.author,
@@ -258,11 +260,7 @@ impl Fame {
         earliest_commit: Option<Vec<u8>>,
         latest_commit: Option<Vec<u8>>,
     ) -> Result<Vec<BlameEntry>> {
-        let processor = BlameProcessor::new(
-            self.args.path.clone(),
-            earliest_commit,
-            latest_commit,
-        );
+        let processor = BlameProcessor::new(self.args.path.clone(), earliest_commit, latest_commit);
 
         let progress = ProgressBar::new(file_names.len() as u64);
         let progress = Arc::new(RwLock::new(progress));
@@ -274,7 +272,8 @@ impl Fame {
             let progress = progress.clone();
 
             tasks.push(tokio::spawn(async move {
-                processor.process(file_name.clone())
+                processor
+                    .process(file_name.clone())
                     .await
                     .inspect(|result| {
                         progress.write().unwrap().inc(1);
@@ -326,9 +325,7 @@ impl Fame {
             total_lines += entry.lines;
         }
 
-        let total_files = author_stats.values()
-            .map(|s| s.filenames.len())
-            .sum();
+        let total_files = author_stats.values().map(|s| s.filenames.len()).sum();
 
         let mut output: Vec<AuthorStats> = author_stats
             .into_iter()
@@ -363,7 +360,8 @@ impl Processable<()> for Fame {
 
         info!("Commit range: {earliest_commit:?} to {latest_commit:?}");
 
-        let restrict_authors = grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
+        let restrict_authors =
+            grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
         let file_names = grit_utils::generate_file_list(
             &self.args.path,
             self.args.include.clone(),
@@ -374,13 +372,10 @@ impl Processable<()> for Fame {
             .build()
             .context("Failed to create tokio runtime")?;
 
-        let blame_entries = rt.block_on(self.process_files(
-            file_names,
-            earliest_commit,
-            latest_commit,
-        ))?;
+        let blame_entries =
+            rt.block_on(self.process_files(file_names, earliest_commit, latest_commit))?;
 
-        let (output, total_lines, total_files, total_commits) = 
+        let (output, total_lines, total_files, total_commits) =
             self.calculate_stats(blame_entries, restrict_authors);
 
         if self.args.csv {
@@ -578,8 +573,6 @@ mod tests {
             "test_process_fame_restrict_author result was {result}"
         );
 
-        println!(
-            "completed test_process_fame_restrict_author in {duration:?}"
-        );
+        println!("completed test_process_fame_restrict_author in {duration:?}");
     }
 }
