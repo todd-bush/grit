@@ -35,13 +35,13 @@ impl EffortArgs {
         restrict_authors: Option<String>,
     ) -> EffortArgs {
         EffortArgs {
-            path: path,
-            start_date: start_date,
-            end_date: end_date,
-            table: table,
-            include: include,
-            exclude: exclude,
-            restrict_authors: restrict_authors,
+            path,
+            start_date,
+            end_date,
+            table,
+            include,
+            exclude,
+            restrict_authors,
         }
     }
 }
@@ -56,7 +56,7 @@ struct EffortOutput {
 impl EffortOutput {
     pub fn new(file: String) -> EffortOutput {
         EffortOutput {
-            file: file,
+            file,
             commits: 0,
             active_days: 0,
         }
@@ -79,10 +79,10 @@ impl EffortProcessor {
         restrict_authors: Option<Vec<String>>,
     ) -> EffortProcessor {
         EffortProcessor {
-            path: path,
-            earliest_commit: earliest_commit,
-            latest_commit: latest_commit,
-            restrict_authors: restrict_authors,
+            path,
+            earliest_commit,
+            latest_commit,
+            restrict_authors,
         }
     }
 
@@ -93,12 +93,12 @@ impl EffortProcessor {
         bo.track_copies_any_commit_copies(false);
 
         if let Some(ev) = &self.earliest_commit {
-            let oid: Oid = Oid::from_bytes(&ev)?;
+            let oid: Oid = Oid::from_bytes(ev)?;
             bo.oldest_commit(oid);
         };
 
         if let Some(ov) = &self.latest_commit {
-            let oid: Oid = Oid::from_bytes(&ov)?;
+            let oid: Oid = Oid::from_bytes(ov)?;
             bo.newest_commit(oid);
         };
 
@@ -139,13 +139,13 @@ pub struct Effort {
 
 impl Effort {
     pub fn new(args: EffortArgs) -> Effort {
-        Effort { args: args }
+        Effort { args }
     }
 
     fn display_csv(&self, data: Vec<EffortOutput>) -> Result<()> {
         let mut wtr = Writer::from_writer(io::stdout());
 
-        wtr.write_record(&["file", "commits", "active days"])
+        wtr.write_record(["file", "commits", "active days"])
             .expect("cannot serialize header row");
 
         data.iter().for_each(|r| {
@@ -213,15 +213,14 @@ impl Processable<()> for Effort {
             tasks.push(rt.spawn(async move {
                 ep.process_file(&file_name.clone())
                     .await
-                    .map(|e| {
+                    .inspect(|e| {
                         arc_pgb_c
                             .write()
                             .expect("cannot open ProgressBar to write")
                             .inc(1);
-                        e
                     })
                     .map_err(|err| {
-                        error!("Error processing effort: {}", err);
+                        error!("Error processing effort: {err}");
                     })
             }));
         }

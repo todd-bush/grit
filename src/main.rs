@@ -35,6 +35,7 @@ extern crate tokio;
 #[macro_use]
 mod utils;
 
+mod git_utils;
 mod by_date;
 mod by_file;
 mod effort;
@@ -64,7 +65,7 @@ fn main() {
 
     if let Some(command) = cli.command {
         if let Err(e) = command.execute() {
-            eprintln!("Error executing command: {}", e);
+            eprintln!("Error executing command: {e}");
             std::process::exit(1);
         }
     }

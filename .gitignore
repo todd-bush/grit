@@ -21,3 +21,5 @@ to_file.html
 
 .DS_Store
 vendor/
+
+tarpaulin-report.html

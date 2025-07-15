@@ -154,7 +154,7 @@ impl BlameProcessor {
             let sig = hunk.final_signature();
             let author = String::from_utf8_lossy(sig.name_bytes()).to_string();
             let commit_id = hunk.final_commit_id().to_string();
-            let blame_key = format!("{}-{}", author, commit_id);
+            let blame_key = format!("{author}-{commit_id}");
 
             let entry = match blame_map.entry(blame_key) {
                 Vacant(entry) => entry.insert(BlameEntry::new(author, commit_id, file_name.clone())),
@@ -189,9 +189,9 @@ impl Fame {
         total_commits: usize,
     ) -> Result<()> {
         println!("Stats on Repo");
-        println!("Total files: {}", total_files);
-        println!("Total commits: {}", total_commits);
-        println!("Total LOC: {}", total_lines);
+        println!("Total files: {total_files}");
+        println!("Total commits: {total_commits}");
+        println!("Total LOC: {total_lines}");
 
         let mut table = Table::new();
         table.set_titles(row!["Author", "Files", "Commits", "LOC", "Distribution (%)"]);
@@ -201,10 +201,7 @@ impl Fame {
             let commits_pct = format!("{:.1}", stats.perc_commits * 100.0);
             let lines_pct = format!("{:.1}", stats.perc_lines * 100.0);
             let distribution = format!(
-                "{files_pct:<5} / {commits_pct:<5} / {lines_pct:<5}",
-                files_pct = files_pct,
-                commits_pct = commits_pct,
-                lines_pct = lines_pct
+                "{files_pct:<5} / {commits_pct:<5} / {lines_pct:<5}"
             );
 
             table.add_row(row![
@@ -229,7 +226,7 @@ impl Fame {
         };
 
         let mut wrt = Writer::from_writer(writer);
-        wrt.write_record(&[
+        wrt.write_record([
             "Author",
             "Files",
             "Commits",
@@ -279,12 +276,11 @@ impl Fame {
             tasks.push(tokio::spawn(async move {
                 processor.process(file_name.clone())
                     .await
-                    .map(|result| {
+                    .inspect(|result| {
                         progress.write().unwrap().inc(1);
-                        result
                     })
                     .map_err(|err| {
-                        error!("Error processing file {}: {}", file_name, err);
+                        error!("Error processing file {file_name}: {err}");
                         err
                     })
             }));
@@ -365,7 +361,7 @@ impl Processable<()> for Fame {
             self.args.end_date,
         )?;
 
-        info!("Commit range: {:?} to {:?}", earliest_commit, latest_commit);
+        info!("Commit range: {earliest_commit:?} to {latest_commit:?}");
 
         let restrict_authors = grit_utils::convert_string_list_to_vec(self.args.restrict_authors.clone());
         let file_names = grit_utils::generate_file_list(
@@ -433,7 +429,7 @@ mod tests {
             Err(_t) => false,
         };
 
-        assert!(result, "test_process_file result was {}", result);
+        assert!(result, "test_process_file result was {result}");
     }
 
     #[test]
@@ -470,9 +466,9 @@ mod tests {
 
         let duration = start.elapsed();
 
-        assert!(result, "test_process_fame_start_date result was {}", result);
+        assert!(result, "test_process_fame_start_date result was {result}");
 
-        println!("completed test_process_fame_start_date in {:?}", duration);
+        println!("completed test_process_fame_start_date in {duration:?}");
     }
 
     #[test]
@@ -507,9 +503,9 @@ mod tests {
 
         let duration = start.elapsed();
 
-        assert!(result, "test_process_fame_end_date result was {}", result);
+        assert!(result, "test_process_fame_end_date result was {result}");
 
-        println!("completed test_process_fame_end_date in {:?}", duration);
+        println!("completed test_process_fame_end_date in {duration:?}");
     }
 
     #[test]
@@ -542,9 +538,9 @@ mod tests {
 
         let duration = start.elapsed();
 
-        assert!(result, "test_process_fame_include result was {}", result);
+        assert!(result, "test_process_fame_include result was {result}");
 
-        println!("completed test_process_fame_include in {:?}", duration);
+        println!("completed test_process_fame_include in {duration:?}");
     }
 
     #[test]
@@ -579,13 +575,11 @@ mod tests {
 
         assert!(
             result,
-            "test_process_fame_restrict_author result was {}",
-            result
+            "test_process_fame_restrict_author result was {result}"
         );
 
         println!(
-            "completed test_process_fame_restrict_author in {:?}",
-            duration
+            "completed test_process_fame_restrict_author in {duration:?}"
         );
     }
 }

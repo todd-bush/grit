@@ -168,7 +168,7 @@ impl ByDate {
         };
 
         let mut wtr = Writer::from_writer(writer);
-        wtr.write_record(&["date", "count"])?;
+        wtr.write_record(["date", "count"])?;
 
         let mut total_count = 0.0;
         for day in output.iter() {
@@ -269,14 +269,14 @@ mod tests {
         let result = match bd.process() {
             Ok(()) => true,
             Err(e) => {
-                error!("Error in test_by_date_no_end: {:?}", e);
+                error!("Error in test_by_date_no_end: {e:?}");
                 false
             }
         };
 
         println!("completed test_by_date_no_ends in {:?}", start.elapsed());
 
-        assert!(result, "test_by_date_no_ends resut {}", result);
+        assert!(result, "test_by_date_no_ends resut {result}");
     }
 
     #[test]
@@ -302,7 +302,7 @@ mod tests {
             start.elapsed()
         );
 
-        assert!(result, "test_by_date_no_weekends resut {}", result);
+        assert!(result, "test_by_date_no_weekends resut {result}");
     }
 
     #[test]
@@ -328,7 +328,7 @@ mod tests {
             start.elapsed()
         );
 
-        assert!(result, "test_by_date_end_date_only resut {}", result);
+        assert!(result, "test_by_date_end_date_only resut {result}");
     }
 
     #[test]
@@ -358,7 +358,7 @@ mod tests {
 
         println!("completed test_restrict_author in {:?}", start.elapsed());
 
-        assert!(result, "test_restrict_author resut {}", result);
+        assert!(result, "test_restrict_author resut {result}");
     }
 
     #[test]
@@ -384,7 +384,7 @@ mod tests {
             start.elapsed()
         );
 
-        assert!(result, "test_by_date_image resut {}", result);
+        assert!(result, "test_by_date_image resut {result}");
     }
 
     #[test]
@@ -405,7 +405,7 @@ mod tests {
 
         assert!(!bd.is_weekend(weekday.timestamp()), "test_is_weekday");
 
-        println!("test_is_weekend done in {:?}", duration);
+        println!("test_is_weekend done in {duration:?}");
 
         let utc_weekend =
             NaiveDateTime::parse_from_str("2020-04-19 0:0", "%Y-%m-%d %H:%M").unwrap();
@@ -432,7 +432,7 @@ mod tests {
         let test_out = bd.fill_date_gaps(test_data);
         let duration = start.elapsed();
 
-        println!("test_fill_date_gaps done in {:?}", duration);
+        println!("test_fill_date_gaps done in {duration:?}");
 
         assert_eq!(test_out.len(), 4);
         assert_eq!(test_out[2].count, 0.0);

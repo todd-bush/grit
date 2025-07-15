@@ -17,7 +17,7 @@ macro_rules! format_tostr {
 
 pub mod grit_utils {
 
-    use anyhow::Result;
+    use anyhow::{Context, Result};
     use chrono::{DateTime, Datelike, Local, NaiveDateTime, NaiveTime, Utc};
     use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
@@ -44,60 +44,41 @@ pub mod grit_utils {
 
         let statuses = repo.statuses(Some(&mut status_opts))?;
 
-        let includes: Option<Vec<Pattern>> = match include {
-            Some(e) => Some(
-                e.split(',')
-                    .map(|s| {
-                        Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s))
-                    })
-                    .collect(),
-            ),
-            None => None,
-        };
+        let includes: Option<Vec<Pattern>> = include
+            .as_deref()
+            .map(|s| s.split(','))
+            .map(|patterns| {
+                patterns
+                    .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}")))
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?;
 
-        let excludes: Option<Vec<Pattern>> = match exclude {
-            Some(e) => Some(
-                e.split(',')
-                    .map(|s| {
-                        Pattern::new(s).expect(format_tostr!("cannot create new Pattern {} ", s))
-                    })
-                    .collect(),
-            ),
-            None => None,
-        };
+        let excludes: Option<Vec<Pattern>> = exclude
+            .as_deref()
+            .map(|s| s.split(','))
+            .map(|patterns| {
+                patterns
+                    .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}")))
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?;
 
         let file_names: Vec<String> = statuses
             .iter()
-            .filter_map(|se| {
-                let s = se
-                    .path()
-                    .expect("Cannot create string from path")
-                    .to_string();
+            .filter_map(|se| se.path().map(|p| p.to_string()))
+            .filter(|s| {
+                let include_match = includes
+                    .as_ref()
+                    .map(|patterns| patterns.iter().any(|p| p.matches(s)))
+                    .unwrap_or(true);
+                
+                let exclude_match = excludes
+                    .as_ref()
+                    .map(|patterns| patterns.iter().any(|p| p.matches(s)))
+                    .unwrap_or(false);
 
-                let result = match &includes {
-                    Some(il) => {
-                        if il.iter().any(|p| p.matches(&s)) {
-                            Some(s)
-                        } else {
-                            None
-                        }
-                    }
-                    None => Some(s),
-                };
-                result
-            })
-            .filter_map(|s| {
-                let result = if let Some(el) = &excludes {
-                    if el.iter().any(|p| p.matches(&s)) {
-                        None
-                    } else {
-                        Some(s)
-                    }
-                } else {
-                    Some(s)
-                };
-
-                result
+                include_match && !exclude_match
             })
             .collect();
 
@@ -105,10 +86,7 @@ pub mod grit_utils {
     }
 
     pub fn convert_string_list_to_vec(input: Option<String>) -> Option<Vec<String>> {
-        let result: Option<Vec<String>> = match input {
-            Some(s) => Some(s.split(",").map(|e| e.to_string()).collect()),
-            None => None,
-        };
+        let result: Option<Vec<String>> = input.map(|s| s.split(",").map(|e| e.to_string()).collect());
 
         result
     }
@@ -139,8 +117,7 @@ pub mod grit_utils {
 
         let html_file = format!("{}{}", file_base, ".html");
         let html_output = format!(
-            "<html><head></head><body><img src=\"{}\"/></body></html>",
-            filename
+            "<html><head></head><body><img src=\"{filename}\"/></body></html>"
         );
 
         let mut output = File::create(html_file).expect("HTML file creation failed");
@@ -152,10 +129,7 @@ pub mod grit_utils {
     }
 
     pub fn check_file_type(filename: &str, ext: &str) -> bool {
-        let file_ext = match get_filename_extension(filename) {
-            Some(f) => f,
-            None => "",
-        };
+        let file_ext = get_filename_extension(filename).unwrap_or_default();
 
         ext.eq_ignore_ascii_case(file_ext)
     }
@@ -188,7 +162,7 @@ pub mod grit_utils {
                 let commit_time = commit.time().seconds();
 
                 if commit_time >= start_date_sec {
-                    earliest_commit = Some(oid.as_bytes().iter().map(|b| *b).collect())
+                    earliest_commit = Some(oid.as_bytes().to_vec())
                 } else {
                     break;
                 }
@@ -213,7 +187,7 @@ pub mod grit_utils {
                 let commit_time = commit.time().seconds();
 
                 if commit_time <= end_date_sec {
-                    latest_commit = Some(oid.as_bytes().iter().map(|b| *b).collect())
+                    latest_commit = Some(oid.as_bytes().to_vec())
                 } else {
                     break;
                 }
@@ -226,7 +200,7 @@ pub mod grit_utils {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use chrono::{Local, NaiveDate, TimeZone};
+        use chrono::{Local, NaiveDate, TimeZone, Months};
         use log::LevelFilter;
         use tempfile::TempDir;
 
@@ -238,7 +212,7 @@ pub mod grit_utils {
             crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, None, None).unwrap();
 
-            info!("include all {:?}", result);
+            info!("include all {result:?}");
 
             assert!(
                 result.len() >= 6,
@@ -252,7 +226,7 @@ pub mod grit_utils {
             crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, Some("*.rs".to_string()), None).unwrap();
 
-            info!("include *.rs {:?}", result);
+            info!("include *.rs {result:?}");
 
             assert!(
                 result.iter().all(|s| s.ends_with(".rs")),
@@ -266,7 +240,7 @@ pub mod grit_utils {
             crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, None, Some("*.rs".to_string())).unwrap();
 
-            info!("excludes *.rs {:?}", result);
+            info!("excludes *.rs {result:?}");
 
             assert!(
                 !result.iter().any(|s| s.ends_with(".rs")),
@@ -316,6 +290,29 @@ pub mod grit_utils {
 
             assert_eq!(early, None);
             assert_eq!(late, None);
+        
+        }
+
+        #[test]
+        fn test_find_commit_range_here() {
+            crate::grit_test::set_test_logging(LevelFilter::Info);
+
+            let end_date_str: String = "2025-04-20 21:02:20.346474121 +0400".to_string();
+
+            let es = Local::now().checked_add_months(Months::new(360)).unwrap();
+            let et = end_date_str.parse::<DateTime<Local>>().unwrap();
+
+            let (early, late) = find_commit_range(
+                ".",
+                Option::Some(es), 
+                Option::Some(et)).unwrap();
+
+
+
+            info!("late = {:?}", late.as_ref());
+
+            assert_eq!(early, None);
+            assert_eq!(late.as_ref(), Some(&vec![90u8, 203, 196, 11, 12, 24, 251, 18, 145, 168, 139, 110, 201, 124, 248, 73, 180, 18, 90, 119]));
         }
 
         #[test]
@@ -342,9 +339,9 @@ pub mod grit_utils {
 
             let (early, late) = find_commit_range(path, Some(ed), None).unwrap();
 
-            //info!("early = {:?}", early.unwrap());
+            //info!("early = {:?}", early.as_ref());
 
-            assert!(early.unwrap().len() > 0);
+            assert!(!early.unwrap().is_empty());
             assert_eq!(late, None);
         }
     }

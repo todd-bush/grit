@@ -133,7 +133,7 @@ impl ByFile {
         };
 
         let mut csv_writer = Writer::from_writer(writer);
-        csv_writer.write_record(&["author", "date", "lines"])?;
+        csv_writer.write_record(["author", "date", "lines"])?;
 
         for contribution in data {
             csv_writer.serialize((
@@ -240,7 +240,7 @@ mod tests {
         let result = match bf.process() {
             Ok(()) => true,
             Err(e) => {
-                error!("test_by_file ended in error: {:?}", e);
+                error!("test_by_file ended in error: {e:?}");
                 false
             }
         };
@@ -268,7 +268,7 @@ mod tests {
         let result = match bf.process() {
             Ok(()) => true,
             Err(e) => {
-                error!("test_by_file_with_image ended in error: {:?}", e);
+                error!("test_by_file_with_image ended in error: {e:?}");
                 false
             }
         };
