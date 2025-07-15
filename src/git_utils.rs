@@ -24,24 +24,22 @@ pub mod git_utils {
         exclude: Option<&str>,
     ) -> Result<Vec<String>> {
         let include_patterns = include
-            .as_deref()
             .map(|s| s.split(","))
             .map(|patterns| {
                 patterns
                     .map(|s| {
-                        Pattern::new(s).with_context(|| format!("Failed to create pattern: {}", s))
+                        Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}"))
                     })
                     .collect::<Result<Vec<_>>>()
             })
             .transpose()?;
 
         let exclude_patterns = exclude
-            .as_deref()
             .map(|s| s.split(","))
             .map(|patterns| {
                 patterns
                     .map(|s| {
-                        Pattern::new(s).with_context(|| format!("Failed to create pattern: {}", s))
+                        Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}"))
                     })
                     .collect::<Result<Vec<_>>>()
             })
@@ -103,7 +101,7 @@ pub mod git_utils {
             revwalk.push_head()?;
 
             if let Some(Ok(oid)) = revwalk.next() {
-                commit_range.earliest = Some(oid.as_bytes().iter().map(|b| *b).collect());
+                commit_range.earliest = Some(oid.as_bytes().to_vec());
             }
         }
 
@@ -114,7 +112,7 @@ pub mod git_utils {
             revwalk.push_head()?;
 
             if let Some(Ok(oid)) = revwalk.next() {
-                commit_range.latest = Some(oid.as_bytes().iter().map(|b| *b).collect());
+                commit_range.latest = Some(oid.as_bytes().to_vec());
             }
         }
 
@@ -132,22 +130,20 @@ pub mod git_utils {
                 // Check if this commit is after the start_date
                 if let Some(d) = start_date {
                     let start_date_sec = d.timestamp();
-                    if commit_time >= start_date_sec {
-                        if commit_range.earliest.is_none() {
+                    if commit_time >= start_date_sec
+                        && commit_range.earliest.is_none() {
                             commit_range.earliest =
-                                Some(oid.as_bytes().iter().map(|b| *b).collect());
+                                Some(oid.as_bytes().to_vec());
                         }
-                    }
                 }
 
                 // Check if this commit is before the end_date
                 if let Some(d) = end_date {
                     let end_date_sec = d.timestamp();
-                    if commit_time <= end_date_sec {
-                        if commit_range.latest.is_none() {
-                            commit_range.latest = Some(oid.as_bytes().iter().map(|b| *b).collect());
+                    if commit_time <= end_date_sec
+                        && commit_range.latest.is_none() {
+                            commit_range.latest = Some(oid.as_bytes().to_vec());
                         }
-                    }
                 }
             }
         }
@@ -168,7 +164,7 @@ pub mod git_utils {
             crate::grit_test::set_test_logging(LOG_LEVEL);
             let repo = get_repo(DIR).unwrap();
             let files = get_file_list(&repo, None, None).unwrap();
-            info!("files: {:?}", files);
+            info!("files: {files:?}");
             assert!(files.len() >= 13);
         }
 
@@ -177,7 +173,7 @@ pub mod git_utils {
             crate::grit_test::set_test_logging(LOG_LEVEL);
             let repo = get_repo(DIR).unwrap();
             let files = get_file_list(&repo, Some("*.rs"), None).unwrap();
-            info!("files: {:?}", files);
+            info!("files: {files:?}");
             assert!(files.len() >= 8);
         }
 
@@ -186,7 +182,7 @@ pub mod git_utils {
             crate::grit_test::set_test_logging(LOG_LEVEL);
             let repo = get_repo(DIR).unwrap();
             let files = get_file_list(&repo, None, Some("*.rs")).unwrap();
-            info!("files: {:?}", files);
+            info!("files: {files:?}");
             assert!(files.len() >= 5);
         }
 
@@ -212,7 +208,7 @@ pub mod git_utils {
             let commit_range = find_commit_range(&repo, None, None).unwrap();
             assert!(commit_range.earliest.is_some());
             assert!(commit_range.latest.is_some());
-            info!("commit_range: {:?}", commit_range);
+            info!("commit_range: {commit_range:?}");
 
             assert_ne!(commit_range.earliest, commit_range.latest);
         }
@@ -223,7 +219,7 @@ pub mod git_utils {
             let repo = get_repo(DIR).unwrap();
             let commit_range = find_commit_range(&repo, Some(Local::now()), None).unwrap();
 
-            info!("commit_range: {:?}", commit_range);
+            info!("commit_range: {commit_range:?}");
 
             assert!(commit_range.earliest.is_some());
         }
@@ -234,7 +230,7 @@ pub mod git_utils {
             let repo = get_repo(DIR).unwrap();
             let commit_range = find_commit_range(&repo, None, Some(Local::now())).unwrap();
 
-            info!("commit_range: {:?}", commit_range);
+            info!("commit_range: {commit_range:?}");
 
             assert!(commit_range.latest.is_some());
         }
@@ -248,7 +244,7 @@ pub mod git_utils {
             let commit_range =
                 find_commit_range(&repo, Some(start_date), Some(Local::now())).unwrap();
 
-            info!("commit_range: {:?}", commit_range);
+            info!("commit_range: {commit_range:?}");
 
             assert!(commit_range.earliest.is_some());
             assert!(commit_range.latest.is_some());

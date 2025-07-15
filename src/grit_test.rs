@@ -11,7 +11,7 @@ pub fn init_repo() -> TempDir {
     info!("test repo file path {}", td.path().to_str().unwrap());
 
     RepoBuilder::new()
-        .clone(&"https://github.com/todd-bush/grit.git", td.path())
+        .clone("https://github.com/todd-bush/grit.git", td.path())
         .unwrap();
 
     td

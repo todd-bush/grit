@@ -49,7 +49,7 @@ pub mod grit_utils {
             .map(|s| s.split(','))
             .map(|patterns| {
                 patterns
-                    .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {}", s)))
+                    .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}")))
                     .collect::<Result<Vec<_>>>()
             })
             .transpose()?;
@@ -59,7 +59,7 @@ pub mod grit_utils {
             .map(|s| s.split(','))
             .map(|patterns| {
                 patterns
-                    .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {}", s)))
+                    .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}")))
                     .collect::<Result<Vec<_>>>()
             })
             .transpose()?;
@@ -86,10 +86,7 @@ pub mod grit_utils {
     }
 
     pub fn convert_string_list_to_vec(input: Option<String>) -> Option<Vec<String>> {
-        let result: Option<Vec<String>> = match input {
-            Some(s) => Some(s.split(",").map(|e| e.to_string()).collect()),
-            None => None,
-        };
+        let result: Option<Vec<String>> = input.map(|s| s.split(",").map(|e| e.to_string()).collect());
 
         result
     }
@@ -120,8 +117,7 @@ pub mod grit_utils {
 
         let html_file = format!("{}{}", file_base, ".html");
         let html_output = format!(
-            "<html><head></head><body><img src=\"{}\"/></body></html>",
-            filename
+            "<html><head></head><body><img src=\"{filename}\"/></body></html>"
         );
 
         let mut output = File::create(html_file).expect("HTML file creation failed");
@@ -133,10 +129,7 @@ pub mod grit_utils {
     }
 
     pub fn check_file_type(filename: &str, ext: &str) -> bool {
-        let file_ext = match get_filename_extension(filename) {
-            Some(f) => f,
-            None => "",
-        };
+        let file_ext = get_filename_extension(filename).unwrap_or_default();
 
         ext.eq_ignore_ascii_case(file_ext)
     }
@@ -169,7 +162,7 @@ pub mod grit_utils {
                 let commit_time = commit.time().seconds();
 
                 if commit_time >= start_date_sec {
-                    earliest_commit = Some(oid.as_bytes().iter().map(|b| *b).collect())
+                    earliest_commit = Some(oid.as_bytes().to_vec())
                 } else {
                     break;
                 }
@@ -194,7 +187,7 @@ pub mod grit_utils {
                 let commit_time = commit.time().seconds();
 
                 if commit_time <= end_date_sec {
-                    latest_commit = Some(oid.as_bytes().iter().map(|b| *b).collect())
+                    latest_commit = Some(oid.as_bytes().to_vec())
                 } else {
                     break;
                 }
@@ -219,7 +212,7 @@ pub mod grit_utils {
             crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, None, None).unwrap();
 
-            info!("include all {:?}", result);
+            info!("include all {result:?}");
 
             assert!(
                 result.len() >= 6,
@@ -233,7 +226,7 @@ pub mod grit_utils {
             crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, Some("*.rs".to_string()), None).unwrap();
 
-            info!("include *.rs {:?}", result);
+            info!("include *.rs {result:?}");
 
             assert!(
                 result.iter().all(|s| s.ends_with(".rs")),
@@ -247,7 +240,7 @@ pub mod grit_utils {
             crate::grit_test::set_test_logging(LevelFilter::Info);
             let result = generate_file_list(DIR, None, Some("*.rs".to_string())).unwrap();
 
-            info!("excludes *.rs {:?}", result);
+            info!("excludes *.rs {result:?}");
 
             assert!(
                 !result.iter().any(|s| s.ends_with(".rs")),
@@ -348,7 +341,7 @@ pub mod grit_utils {
 
             //info!("early = {:?}", early.as_ref());
 
-            assert!(early.unwrap().len() > 0);
+            assert!(!early.unwrap().is_empty());
             assert_eq!(late, None);
         }
     }

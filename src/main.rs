@@ -65,7 +65,7 @@ fn main() {
 
     if let Some(command) = cli.command {
         if let Err(e) = command.execute() {
-            eprintln!("Error executing command: {}", e);
+            eprintln!("Error executing command: {e}");
             std::process::exit(1);
         }
     }
