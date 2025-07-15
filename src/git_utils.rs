@@ -130,20 +130,17 @@ pub mod git_utils {
                 // Check if this commit is after the start_date
                 if let Some(d) = start_date {
                     let start_date_sec = d.timestamp();
-                    if commit_time >= start_date_sec
-                        && commit_range.earliest.is_none() {
-                            commit_range.earliest =
-                                Some(oid.as_bytes().to_vec());
-                        }
+                    if commit_time >= start_date_sec && commit_range.earliest.is_none() {
+                        commit_range.earliest = Some(oid.as_bytes().to_vec());
+                    }
                 }
 
                 // Check if this commit is before the end_date
                 if let Some(d) = end_date {
                     let end_date_sec = d.timestamp();
-                    if commit_time <= end_date_sec
-                        && commit_range.latest.is_none() {
-                            commit_range.latest = Some(oid.as_bytes().to_vec());
-                        }
+                    if commit_time <= end_date_sec && commit_range.latest.is_none() {
+                        commit_range.latest = Some(oid.as_bytes().to_vec());
+                    }
                 }
             }
         }
@@ -217,7 +214,8 @@ pub mod git_utils {
         fn test_find_commit_range_with_start_date() {
             crate::grit_test::set_test_logging(LOG_LEVEL);
             let repo = get_repo(DIR).unwrap();
-            let commit_range = find_commit_range(&repo, Some(Local::now()), None).unwrap();
+            let start_date = Local::now() - chrono::Duration::days(14);
+            let commit_range = find_commit_range(&repo, Some(start_date), None).unwrap();
 
             info!("commit_range: {commit_range:?}");
 
