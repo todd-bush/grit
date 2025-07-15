@@ -96,27 +96,30 @@ pub mod git_utils {
             latest: None,
         };
 
+        // If no start_date is provided, find the earliest commit
         if start_date.is_none() {
             let mut revwalk = repo.revwalk()?;
             revwalk.set_sorting(git2::Sort::REVERSE | git2::Sort::TIME)?;
             revwalk.push_head()?;
 
-            let r = revwalk.next().unwrap();
-            let oid: git2::Oid = r.unwrap();
-
-            commit_range.earliest = Some(oid.as_bytes().iter().map(|b| *b).collect());
+            if let Some(Ok(oid)) = revwalk.next() {
+                commit_range.earliest = Some(oid.as_bytes().iter().map(|b| *b).collect());
+            }
         }
 
+        // If no end_date is provided, find the latest commit
         if end_date.is_none() {
             let mut revwalk = repo.revwalk()?;
             revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME)?;
             revwalk.push_head()?;
 
-            let r = revwalk.next().unwrap();
-            commit_range.latest = Some(r.unwrap().as_bytes().iter().map(|b| *b).collect());
+            if let Some(Ok(oid)) = revwalk.next() {
+                commit_range.latest = Some(oid.as_bytes().iter().map(|b| *b).collect());
+            }
         }
 
-        if start_date.is_none() || end_date.is_none() {
+        // If we have start_date or end_date, search for commits within the range
+        if start_date.is_some() || end_date.is_some() {
             let mut revwalk = repo.revwalk()?;
             revwalk.set_sorting(git2::Sort::NONE | git2::Sort::TIME)?;
             revwalk.push_head()?;
@@ -126,22 +129,23 @@ pub mod git_utils {
                 let commit = repo.find_commit(oid)?;
                 let commit_time = commit.time().seconds();
 
+                // Check if this commit is after the start_date
                 if let Some(d) = start_date {
                     let start_date_sec = d.timestamp();
                     if commit_time >= start_date_sec {
-                        commit_range.earliest = Some(oid.as_bytes().iter().map(|b| *b).collect());
-                        if end_date.is_some() {
-                            break;
+                        if commit_range.earliest.is_none() {
+                            commit_range.earliest =
+                                Some(oid.as_bytes().iter().map(|b| *b).collect());
                         }
                     }
                 }
 
+                // Check if this commit is before the end_date
                 if let Some(d) = end_date {
                     let end_date_sec = d.timestamp();
                     if commit_time <= end_date_sec {
-                        commit_range.latest = Some(oid.as_bytes().iter().map(|b| *b).collect());
-                        if start_date.is_some() {
-                            break;
+                        if commit_range.latest.is_none() {
+                            commit_range.latest = Some(oid.as_bytes().iter().map(|b| *b).collect());
                         }
                     }
                 }
