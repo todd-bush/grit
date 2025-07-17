@@ -154,6 +154,11 @@ pub mod grit_utils {
         if let Some(d) = start_date {
             let start_date_sec = d.and_utc().timestamp();
 
+            info!(
+                "finding commits after start_date_sec = {:?}",
+                start_date_sec
+            );
+
             let mut revwalk = repo.revwalk()?;
             revwalk
                 .set_sorting(git2::Sort::NONE | git2::Sort::TIME)
@@ -175,6 +180,8 @@ pub mod grit_utils {
 
         if let Some(d) = end_date {
             let end_date_sec = d.and_utc().timestamp();
+
+            info!("finding commits before end_date_sec = {:?}", end_date_sec);
 
             let mut revwalk = repo.revwalk()?;
             revwalk

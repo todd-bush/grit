@@ -369,6 +369,9 @@ impl Processable<()> for Fame {
             Some(NaiveDateTime::MAX)
         };
 
+        info!("start_date = {:?}", start_date);
+        info!("end_date = {:?}", end_date);
+
         if start_date.is_none() || end_date.is_none() {
             return Err(anyhow::anyhow!("start_date or end_date is None"));
         }
