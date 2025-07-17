@@ -338,7 +338,9 @@ pub mod grit_utils {
         fn test_find_commit_range_early() {
             crate::grit_test::set_test_logging(LOG_LEVEL);
 
-            let ed = NaiveDateTime::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
+            let ed = NaiveDate::from_ymd_opt(2020, 3, 26).unwrap();
+            let ed = ed.and_time(NaiveTime::MIN);
+
             let td: TempDir = crate::grit_test::init_repo();
             let path = td.path().to_str().unwrap();
 
