@@ -297,14 +297,16 @@ pub mod grit_utils {
         fn test_find_commit_range_here() {
             crate::grit_test::set_test_logging(LevelFilter::Info);
 
-            let end_date_str: String = "2025-04-20 21:02:20.346474121 +0400".to_string();
+            let et: NaiveDateTime = NaiveDateTime::parse_from_str(
+                "2025-04-20 21:02:20.346474121 +0400",
+                "%Y-%m-%d %H:%M:%S%.f %z",
+            )
+            .unwrap();
 
             let es: NaiveDateTime = Local::now()
                 .naive_local()
                 .checked_add_months(Months::new(360))
                 .unwrap();
-
-            let et = end_date_str.parse::<NaiveDateTime>().unwrap();
 
             let (early, late) = find_commit_range(".", Option::Some(es), Option::Some(et)).unwrap();
 
@@ -314,8 +316,8 @@ pub mod grit_utils {
             assert_eq!(
                 late.as_ref(),
                 Some(&vec![
-                    90u8, 203, 196, 11, 12, 24, 251, 18, 145, 168, 139, 110, 201, 124, 248, 73,
-                    180, 18, 90, 119
+                    230u8, 147, 145, 157, 203, 250, 82, 45, 36, 189, 89, 60, 77, 127, 121, 65, 195,
+                    122, 181, 12
                 ])
             );
         }
