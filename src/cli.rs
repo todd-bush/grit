@@ -59,11 +59,14 @@ pub struct FameCommand {
     )]
     sort: Option<String>,
 
-    #[arg(long = "start-date", help = "start date in YYYY-MM-DD format")]
-    start_date: Option<DateTime<Local>>,
+    #[arg(
+        long = "start-day-back",
+        help = "the number of days back to collect data from"
+    )]
+    start_day_back: Option<u32>,
 
-    #[arg(long = "end-date", help = "end date in YYYY-MM-DD format")]
-    end_date: Option<DateTime<Local>>,
+    #[arg(long = "end-day-back", help = "end date in YYYY-MM-DD format")]
+    end_day_back: Option<u32>,
 
     #[arg(
         long = "include",
@@ -83,8 +86,8 @@ impl FameCommand {
         let fame_args = FameArgs::new(
             String::from("."),
             self.sort.clone(),
-            self.start_date,
-            self.end_date,
+            self.start_day_back,
+            self.end_day_back,
             self.include.clone(),
             self.exclude.clone(),
             None,
@@ -100,11 +103,17 @@ impl FameCommand {
 pub struct ByDateCommand {
     name: Option<String>,
 
-    #[arg(long = "start-date", help = "start date in YYYY-MM-DD format")]
-    start_date: Option<DateTime<Local>>,
+    #[arg(
+        long = "start-day-back",
+        help = "the number of days back to collect data from"
+    )]
+    start_day_back: Option<u32>,
 
-    #[arg(long = "end-date", help = "end date in YYYY-MM-DD format")]
-    end_date: Option<DateTime<Local>>,
+    #[arg(
+        long = "end-day-back",
+        help = "the number of days back to collect data from"
+    )]
+    end_day_back: Option<u32>,
 
     #[arg(
         long = "file",
@@ -204,11 +213,17 @@ impl ByFileCommand {
 pub struct EffortCommand {
     name: Option<String>,
 
-    #[arg(long = "start-date", help = "start date in YYYY-MM-DD format")]
-    start_date: Option<DateTime<Local>>,
+    #[arg(
+        long = "start-day-back",
+        help = "the number of days back to collect data from"
+    )]
+    start_day_back: Option<u32>,
 
-    #[arg(long = "end-date", help = "end date in YYYY-MM-DD format")]
-    end_date: Option<DateTime<Local>>,
+    #[arg(
+        long = "end-day-back",
+        help = "the number of days back to collect data from"
+    )]
+    end_day_back: Option<u32>,
 
     #[arg(long = "table", help = "display as a table to stdout")]
     table: bool,
@@ -230,8 +245,8 @@ impl EffortCommand {
     fn execute(&self) -> Result<()> {
         let effort_args = EffortArgs::new(
             String::from("."),
-            self.start_date,
-            self.end_date,
+            self.start_day_back,
+            self.end_day_back,
             self.table,
             self.include.clone(),
             self.exclude.clone(),

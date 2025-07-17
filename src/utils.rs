@@ -142,8 +142,8 @@ pub mod grit_utils {
 
     pub fn find_commit_range(
         repo_path: &str,
-        start_date: Option<DateTime<Local>>,
-        end_date: Option<DateTime<Local>>,
+        start_date: Option<NaiveDateTime>,
+        end_date: Option<NaiveDateTime>,
     ) -> GenResult<CommitRange> {
         let mut earliest_commit = None;
         let mut latest_commit = None;
@@ -152,10 +152,8 @@ pub mod grit_utils {
             .unwrap_or_else(|_| panic!("Could not open repo for path {repo_path}"));
 
         if let Some(d) = start_date {
-            let start_date_sec =
-                NaiveDateTime::new(d.date_naive(), NaiveTime::from_hms_opt(0, 0, 0).unwrap())
-                    .and_utc()
-                    .timestamp();
+            let start_date_sec = d.and_utc().timestamp();
+
             let mut revwalk = repo.revwalk()?;
             revwalk
                 .set_sorting(git2::Sort::NONE | git2::Sort::TIME)
@@ -176,10 +174,7 @@ pub mod grit_utils {
         }
 
         if let Some(d) = end_date {
-            let end_date_sec =
-                NaiveDateTime::new(d.date_naive(), NaiveTime::from_hms_opt(23, 59, 59).unwrap())
-                    .and_utc()
-                    .timestamp();
+            let end_date_sec = d.and_utc().timestamp();
 
             let mut revwalk = repo.revwalk()?;
             revwalk
@@ -304,8 +299,12 @@ pub mod grit_utils {
 
             let end_date_str: String = "2025-04-20 21:02:20.346474121 +0400".to_string();
 
-            let es = Local::now().checked_add_months(Months::new(360)).unwrap();
-            let et = end_date_str.parse::<DateTime<Local>>().unwrap();
+            let es: NaiveDateTime = Local::now()
+                .naive_local()
+                .checked_add_months(Months::new(360))
+                .unwrap();
+
+            let et = end_date_str.parse::<NaiveDateTime>().unwrap();
 
             let (early, late) = find_commit_range(".", Option::Some(es), Option::Some(et)).unwrap();
 
@@ -337,9 +336,7 @@ pub mod grit_utils {
         fn test_find_commit_range_early() {
             crate::grit_test::set_test_logging(LOG_LEVEL);
 
-            let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
-            let naive_dt = utc_dt.and_hms_opt(0, 0, 0).unwrap();
-            let ed = Local.from_local_datetime(&naive_dt).unwrap();
+            let ed = NaiveDateTime::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
             let td: TempDir = crate::grit_test::init_repo();
             let path = td.path().to_str().unwrap();
 
