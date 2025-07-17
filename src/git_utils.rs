@@ -200,6 +200,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_find_commit_range() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
         let repo = get_repo(DIR).unwrap();

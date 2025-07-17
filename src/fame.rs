@@ -1,7 +1,8 @@
 use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::{Context, Result};
-use chrono::{DateTime, Local};
+use chrono::offset::Local;
+use chrono::{Days, NaiveDateTime};
 use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
@@ -22,8 +23,8 @@ use std::time::Instant;
 pub struct FameArgs {
     path: String,
     sort: Option<String>,
-    start_date: Option<DateTime<Local>>,
-    end_date: Option<DateTime<Local>>,
+    start_day_back: Option<u32>,
+    end_day_back: Option<u32>,
     include: Option<String>,
     exclude: Option<String>,
     restrict_authors: Option<String>,
@@ -36,8 +37,8 @@ impl FameArgs {
     pub fn new(
         path: String,
         sort: Option<String>,
-        start_date: Option<DateTime<Local>>,
-        end_date: Option<DateTime<Local>>,
+        start_day_back: Option<u32>,
+        end_day_back: Option<u32>,
         include: Option<String>,
         exclude: Option<String>,
         restrict_authors: Option<String>,
@@ -47,8 +48,8 @@ impl FameArgs {
         Self {
             path,
             sort,
-            start_date,
-            end_date,
+            start_day_back,
+            end_day_back,
             include,
             exclude,
             restrict_authors,
@@ -353,11 +354,30 @@ impl Fame {
 
 impl Processable<()> for Fame {
     fn process(&self) -> Result<()> {
-        let (earliest_commit, latest_commit) = grit_utils::find_commit_range(
-            &self.args.path,
-            self.args.start_date,
-            self.args.end_date,
-        )?;
+        let start_date = if let Some(start_day_back) = self.args.start_day_back {
+            Local::now()
+                .naive_local()
+                .checked_sub_days(Days::new(start_day_back as u64))
+        } else {
+            Some(NaiveDateTime::MIN)
+        };
+        let end_date = if let Some(end_day_back) = self.args.end_day_back {
+            Local::now()
+                .naive_local()
+                .checked_sub_days(Days::new(end_day_back as u64))
+        } else {
+            Some(NaiveDateTime::MAX)
+        };
+
+        info!("start_date = {start_date:?}");
+        info!("end_date = {end_date:?}");
+
+        if start_date.is_none() || end_date.is_none() {
+            return Err(anyhow::anyhow!("start_date or end_date is None"));
+        }
+
+        let (earliest_commit, latest_commit) =
+            grit_utils::find_commit_range(&self.args.path, start_date, end_date)?;
 
         info!("Commit range: {earliest_commit:?} to {latest_commit:?}");
 
@@ -392,9 +412,7 @@ impl Processable<()> for Fame {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, NaiveDate, TimeZone};
     use log::LevelFilter;
-    use std::ops::Add;
     use tempfile::TempDir;
 
     const LOG_LEVEL: LevelFilter = LevelFilter::Info;
@@ -422,7 +440,10 @@ mod tests {
 
         let result = match f.process() {
             Ok(()) => true,
-            Err(_t) => false,
+            Err(_t) => {
+                error!("test_process_file result was {_t}");
+                false
+            }
         };
 
         assert!(result, "test_process_file result was {result}");
@@ -435,14 +456,12 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let utc_dt = NaiveDate::parse_from_str("2020-03-26", "%Y-%m-%d").unwrap();
-        let naive_dt = utc_dt.and_hms_opt(0, 0, 0).unwrap();
-        let ed = Local.from_local_datetime(&naive_dt).unwrap();
+        let days_back = 30;
 
         let args = FameArgs::new(
             path.to_string(),
             Some("loc".to_string()),
-            Some(ed),
+            Some(days_back),
             None,
             None,
             None,
@@ -457,7 +476,10 @@ mod tests {
 
         let result = match fame.process() {
             Ok(()) => true,
-            Err(_t) => false,
+            Err(_t) => {
+                error!("test_process_fame_start_date result was {_t}");
+                false
+            }
         };
 
         let duration = start.elapsed();
@@ -474,13 +496,11 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let ed = Local::now().add(Duration::days(-30));
-
         let args = FameArgs::new(
             path.to_string(),
             Some("loc".to_string()),
             None,
-            Some(ed),
+            Some(30),
             None,
             None,
             None,

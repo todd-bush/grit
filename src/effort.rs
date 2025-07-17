@@ -1,8 +1,8 @@
 use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::Result;
-use chrono::DateTime;
 use chrono::offset::Local;
+use chrono::{DateTime, Days};
 use csv::Writer;
 use futures::future::join_all;
 use git2::{BlameOptions, Oid, Repository};
@@ -16,8 +16,8 @@ use tokio::task::JoinHandle;
 
 pub struct EffortArgs {
     path: String,
-    start_date: Option<DateTime<Local>>,
-    end_date: Option<DateTime<Local>>,
+    start_day_back: Option<u32>,
+    end_day_back: Option<u32>,
     table: bool,
     include: Option<String>,
     exclude: Option<String>,
@@ -27,8 +27,8 @@ pub struct EffortArgs {
 impl EffortArgs {
     pub fn new(
         path: String,
-        start_date: Option<DateTime<Local>>,
-        end_date: Option<DateTime<Local>>,
+        start_day_back: Option<u32>,
+        end_day_back: Option<u32>,
         table: bool,
         include: Option<String>,
         exclude: Option<String>,
@@ -36,8 +36,8 @@ impl EffortArgs {
     ) -> EffortArgs {
         EffortArgs {
             path,
-            start_date,
-            end_date,
+            start_day_back,
+            end_day_back,
             table,
             include,
             exclude,
@@ -176,11 +176,23 @@ impl Effort {
 
 impl Processable<()> for Effort {
     fn process(&self) -> Result<()> {
-        let (earliest_commit, latest_commit) = grit_utils::find_commit_range(
-            &self.args.path,
-            self.args.start_date,
-            self.args.end_date,
-        )?;
+        let start_date = if let Some(start_day_back) = self.args.start_day_back {
+            Local::now()
+                .naive_local()
+                .checked_sub_days(Days::new(start_day_back as u64))
+        } else {
+            None
+        };
+        let end_date = if let Some(end_day_back) = self.args.end_day_back {
+            Local::now()
+                .naive_local()
+                .checked_sub_days(Days::new(end_day_back as u64))
+        } else {
+            None
+        };
+
+        let (earliest_commit, latest_commit) =
+            grit_utils::find_commit_range(&self.args.path, start_date, end_date)?;
 
         let file_names: Vec<String> = grit_utils::generate_file_list(
             &self.args.path,
