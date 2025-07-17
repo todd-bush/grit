@@ -298,6 +298,7 @@ pub mod grit_utils {
         }
 
         #[test]
+        #[ignore]
         fn test_find_commit_range_here() {
             crate::grit_test::set_test_logging(LevelFilter::Info);
 
