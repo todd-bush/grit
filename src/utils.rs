@@ -18,7 +18,7 @@ macro_rules! format_tostr {
 pub mod grit_utils {
 
     use anyhow::{Context, Result};
-    use chrono::{DateTime, Datelike, Local, NaiveDateTime, NaiveTime, Utc};
+    use chrono::{DateTime, Datelike, Local, NaiveDateTime, Utc};
     use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
     use std::ffi::OsStr;
@@ -201,7 +201,7 @@ pub mod grit_utils {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use chrono::{Local, Months, NaiveDate, TimeZone};
+        use chrono::{Local, Months, NaiveDate, NaiveDateTime, TimeZone};
         use log::LevelFilter;
         use tempfile::TempDir;
 
@@ -339,14 +339,14 @@ pub mod grit_utils {
             crate::grit_test::set_test_logging(LOG_LEVEL);
 
             let ed = NaiveDate::from_ymd_opt(2020, 3, 26).unwrap();
-            let ed = ed.and_time(NaiveTime::MIN);
+            let ed = ed.and_hms_opt(0, 0, 0).unwrap();
 
             let td: TempDir = crate::grit_test::init_repo();
             let path = td.path().to_str().unwrap();
 
             let (early, late) = find_commit_range(path, Some(ed), None).unwrap();
 
-            //info!("early = {:?}", early.as_ref());
+            info!("early = {:?}", early.as_ref());
 
             assert!(!early.unwrap().is_empty());
             assert_eq!(late, None);
