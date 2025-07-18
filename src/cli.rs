@@ -64,7 +64,10 @@ pub struct FameCommand {
     )]
     start_days_back: Option<u32>,
 
-    #[arg(long = "end-days-back", help = "end date in YYYY-MM-DD format")]
+    #[arg(
+        long = "end-days-back",
+        help = "the number of days back to collect data to"
+    )]
     end_days_back: Option<u32>,
 
     #[arg(
@@ -110,7 +113,7 @@ pub struct ByDateCommand {
 
     #[arg(
         long = "end-days-back",
-        help = "the number of days back to collect data from"
+        help = "the number of days back to collect data to"
     )]
     end_days_back: Option<u32>,
 
@@ -220,7 +223,7 @@ pub struct EffortCommand {
 
     #[arg(
         long = "end-days-back",
-        help = "the number of days back to collect data from"
+        help = "the number of days back to collect data to"
     )]
     end_days_back: Option<u32>,
 
