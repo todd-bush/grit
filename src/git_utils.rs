@@ -216,7 +216,7 @@ mod tests {
     fn test_find_commit_range_with_start_date() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
         let repo = get_repo(DIR).unwrap();
-        let start_date = Local::now() - chrono::Duration::days(14);
+        let start_date = Local::now() - chrono::Duration::days(365);
         let commit_range = find_commit_range(&repo, Some(start_date), None).unwrap();
 
         info!("commit_range: {commit_range:?}");
