@@ -1,16 +1,16 @@
 //! grit
 //! Usage:
-//! grit fame [--sort=<field>] [--start-date=<string>] [--end-date=<string>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
-//! grit bydate [--start-date=<string>] [--end-date=<string>] [--file=<string>] [--image] [--html] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
+//! grit fame [--sort=<field>] [--start-days-back=<int>] [--end-days-back=<int>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
+//! grit bydate [--start-days-back=<int>] [--end-days-back=<int>] [--file=<string>] [--image] [--html] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
 //! grit byfile [--in-file=<string>] [--file=<string>] [--image] [--html] [--verbose] [--debug]
-//! grit effort [--start-date=<string>] [--end-date=<string>] [--table] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
+//! grit effort [--start-days-back=<int>] [--end-days-back=<int>] [--table] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
 //!
 //! Options:
 //! --debug                     enables debug
 //! -h, --about                  displays about
 //! --sort=<field>              sort field, either 'commit' (default), 'loc', 'files'
-//! --start-date=<string>       start date in YYYY-MM-DD format.
-//! --end-date=<string>         end date in YYYY-MM-DD format.
+//! --start-days-back=<int>     start date in days back from today.
+//! --end-days-back=<int>       end date in days back from today.
 //! --include=<string>          comma delimited, glob file path to include path1/*,path2/*
 //! --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
 //! --file=<string>             output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg
