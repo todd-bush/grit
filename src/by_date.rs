@@ -110,8 +110,9 @@ impl ByDate {
             }
 
             let dt = grit_utils::convert_git_time(&commit.time());
-            let entry = match output_map.entry(dt) {
-                Vacant(entry) => entry.insert(CommitDay::new(dt, 0.0)),
+            let truncated_dt = grit_utils::truncate_date(dt);
+            let entry = match output_map.entry(truncated_dt) {
+                Vacant(entry) => entry.insert(CommitDay::new(truncated_dt, 0.0)),
                 Occupied(entry) => entry.into_mut(),
             };
             entry.count += 1.0;
