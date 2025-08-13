@@ -18,7 +18,7 @@ macro_rules! format_tostr {
 pub mod grit_utils {
 
     use anyhow::{Context, Result};
-    use chrono::{DateTime, Datelike, Local, NaiveDateTime, Utc};
+    use chrono::{DateTime, Datelike, Local, NaiveDateTime, Timelike, Utc};
     use git2::{Repository, StatusOptions, Time};
     use glob::Pattern;
     use std::ffi::OsStr;
@@ -104,6 +104,15 @@ pub mod grit_utils {
 
     pub fn format_date(d: DateTime<Local>) -> String {
         format!("{}-{:0>2}-{:0>2}", d.year(), d.month(), d.day())
+    }
+
+    pub fn truncate_date(d: DateTime<Local>) -> DateTime<Local> {
+        d.with_hour(0)
+            .unwrap()
+            .with_minute(0)
+            .unwrap()
+            .with_second(0)
+            .unwrap()
     }
 
     pub fn get_filename_extension(filename: &str) -> Option<&str> {

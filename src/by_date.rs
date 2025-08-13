@@ -3,7 +3,6 @@ use crate::utils::grit_utils;
 use anyhow::{Context, Result};
 use charts_rs::{LineChart, Series};
 use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Weekday};
-use csv::Writer;
 use git2::Repository;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, HashMap};
@@ -111,8 +110,9 @@ impl ByDate {
             }
 
             let dt = grit_utils::convert_git_time(&commit.time());
-            let entry = match output_map.entry(dt) {
-                Vacant(entry) => entry.insert(CommitDay::new(dt, 0.0)),
+            let truncated_dt = grit_utils::truncate_date(dt);
+            let entry = match output_map.entry(truncated_dt) {
+                Vacant(entry) => entry.insert(CommitDay::new(truncated_dt, 0.0)),
                 Occupied(entry) => entry.into_mut(),
             };
             entry.count += 1.0;
@@ -161,22 +161,20 @@ impl ByDate {
 
     /// Displays the commit data as text output
     fn display_text_output(&self, output: Vec<CommitDay>) -> Result<()> {
-        let writer: Box<dyn Write> = match &self.args.file {
+        let mut writer: Box<dyn Write> = match &self.args.file {
             Some(f) => Box::new(File::create(f)?),
             None => Box::new(io::stdout()),
         };
 
-        let mut wtr = Writer::from_writer(writer);
-        wtr.write_record(["date", "count"])?;
-
         let mut total_count = 0.0;
         for day in output.iter() {
-            wtr.serialize((grit_utils::format_date(day.date), day.count))?;
+            let date_str = grit_utils::format_date(day.date);
+            writeln!(writer, "{}: {}", date_str, day.count as i32)?;
             total_count += day.count;
         }
 
-        wtr.serialize(("Total", total_count))?;
-        wtr.flush()?;
+        writeln!(writer, "\nTotal: {}", total_count as i32)?;
+        writer.flush()?;
 
         Ok(())
     }
