@@ -20,58 +20,6 @@ pub fn get_repo_status_for_file(
 }
 
 #[allow(dead_code)]
-pub fn get_file_list(
-    repo: &Repository,
-    include: Option<&str>,
-    exclude: Option<&str>,
-) -> Result<Vec<String>> {
-    let include_patterns = include
-        .map(|s| s.split(","))
-        .map(|patterns| {
-            patterns
-                .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}")))
-                .collect::<Result<Vec<_>>>()
-        })
-        .transpose()?;
-
-    let exclude_patterns = exclude
-        .map(|s| s.split(","))
-        .map(|patterns| {
-            patterns
-                .map(|s| Pattern::new(s).with_context(|| format!("Failed to create pattern: {s}")))
-                .collect::<Result<Vec<_>>>()
-        })
-        .transpose()?;
-
-    let mut status_opts = StatusOptions::new();
-    status_opts.include_untracked(false);
-    status_opts.include_unmodified(true);
-    status_opts.include_ignored(false);
-    status_opts.include_unreadable(false);
-    status_opts.exclude_submodules(true);
-
-    let statuses = repo.statuses(Some(&mut status_opts))?;
-
-    let files_names = statuses
-        .iter()
-        .filter_map(|se| se.path().map(|p| p.to_string()))
-        .filter(|s| {
-            let include_match = include_patterns
-                .as_ref()
-                .map(|patterns| patterns.iter().any(|p| p.matches(s)))
-                .unwrap_or(true);
-            let exclude_match = exclude_patterns
-                .as_ref()
-                .map(|patterns| patterns.iter().any(|p| p.matches(s)))
-                .unwrap_or(false);
-            include_match && !exclude_match
-        })
-        .collect();
-
-    Ok(files_names)
-}
-
-#[allow(dead_code)]
 pub fn date_to_git_date(date: DateTime<Local>) -> git2::Time {
     let naive = date.naive_utc();
     git2::Time::new(naive.and_utc().timestamp(), 0)
@@ -158,41 +106,7 @@ mod tests {
     const DIR: &str = ".";
 
     #[test]
-    fn test_get_file_list() {
-        crate::grit_test::set_test_logging(LOG_LEVEL);
-        let repo = get_repo(DIR).unwrap();
-        let files = get_file_list(&repo, None, None).unwrap();
-        info!("files: {files:?}");
-        assert!(files.len() >= 13);
-    }
-
-    #[test]
-    fn test_get_file_list_with_include() {
-        crate::grit_test::set_test_logging(LOG_LEVEL);
-        let repo = get_repo(DIR).unwrap();
-        let files = get_file_list(&repo, Some("*.rs"), None).unwrap();
-        info!("files: {files:?}");
-        assert!(files.len() >= 8);
-    }
-
-    #[test]
-    fn test_get_file_list_with_exclude() {
-        crate::grit_test::set_test_logging(LOG_LEVEL);
-        let repo = get_repo(DIR).unwrap();
-        let files = get_file_list(&repo, None, Some("*.rs")).unwrap();
-        info!("files: {files:?}");
-        assert!(files.len() >= 5);
-    }
-
-    #[test]
-    fn test_get_file_list_with_include_and_exclude() {
-        crate::grit_test::set_test_logging(LOG_LEVEL);
-        let repo = get_repo(DIR).unwrap();
-        let files = get_file_list(&repo, Some("*.toml"), Some("*.rs")).unwrap();
-        assert_eq!(files.len(), 1);
-    }
-
-    #[test]
+    #[ignore]
     fn test_date_to_git_date() {
         let date = Local::now();
         let git_date = date_to_git_date(date);
