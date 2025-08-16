@@ -40,7 +40,6 @@ mod by_file;
 mod cli;
 mod effort;
 mod fame;
-mod git_utils;
 
 #[cfg(test)]
 #[macro_use]
