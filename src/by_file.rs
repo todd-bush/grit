@@ -1,7 +1,6 @@
 use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::{Context, Result};
-use charts_rs::{LineChart, Series};
 use chrono::DateTime;
 use chrono::offset::Local;
 use csv::Writer;
@@ -20,8 +19,6 @@ pub struct ByFileArgs {
     path: String,
     full_path_filename: String,
     output_file: Option<String>,
-    image: bool,
-    html: bool,
     restrict_authors: Option<String>,
 }
 
@@ -30,16 +27,12 @@ impl ByFileArgs {
         path: String,
         full_path_filename: String,
         output_file: Option<String>,
-        image: bool,
-        html: bool,
         restrict_authors: Option<String>,
     ) -> Self {
         Self {
             path,
             full_path_filename,
             output_file,
-            image,
-            html,
             restrict_authors,
         }
     }
@@ -148,76 +141,13 @@ impl ByFile {
         csv_writer.flush()?;
         Ok(())
     }
-
-    /// Creates and displays a chart of the results
-    fn display_image(&self, data: Vec<FileContribution>) -> Result<()> {
-        let output_file = self
-            .args
-            .output_file
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Output file is required for image generation"))?;
-
-        let (width, height) = self.calculate_chart_dimensions(data.len());
-        let margins = (90, 40, 50, 60);
-
-        let dates: Vec<String> = data
-            .iter()
-            .map(|d| grit_utils::format_date(d.date))
-            .collect();
-
-        let chart_data: Vec<Series> = BTreeMap::from_iter(data)
-            .iter()
-            .map(|(k, v)| Series::new(k.clone(), v.clone()))
-            .collect();
-
-        let mut chart = LineChart::new_with_theme(chart_data, dates, "chaulk");
-        self.configure_chart(&mut chart, width, height, margins);
-
-        std::fs::write(output_file, chart.svg()?)?;
-
-        if self.args.html {
-            grit_utils::create_html(output_file)?;
-        }
-
-        Ok(())
-    }
-
-    /// Calculates appropriate chart dimensions based on data size
-    fn calculate_chart_dimensions(&self, data_points: usize) -> (u32, u32) {
-        match data_points {
-            n if n > 60 => (1920, 960),
-            n if n > 35 => (1280, 960),
-            _ => (1027, 768),
-        }
-    }
-
-    /// Configures chart properties
-    fn configure_chart(
-        &self,
-        chart: &mut LineChart,
-        width: u32,
-        height: u32,
-        margins: (u32, u32, u32, u32),
-    ) {
-        chart.width = width as f32;
-        chart.height = height as f32;
-        chart.margin.top = margins.0 as f32;
-        chart.margin.right = margins.1 as f32;
-        chart.margin.bottom = margins.2 as f32;
-        chart.margin.left = margins.3 as f32;
-        chart.title_text = self.args.full_path_filename.clone();
-    }
 }
 
 impl Processable<()> for ByFile {
     fn process(&self) -> Result<()> {
         let results = self.process_blame()?;
 
-        if self.args.image {
-            self.display_image(results)?;
-        } else {
-            self.display_csv(results)?;
-        }
+        self.display_csv(results)?;
 
         Ok(())
     }
@@ -241,8 +171,6 @@ mod tests {
             td.path().to_str().unwrap().to_string(),
             "src/by_date.rs".to_string(),
             None,
-            false,
-            false,
             None,
         );
 
@@ -252,34 +180,6 @@ mod tests {
             Ok(()) => true,
             Err(e) => {
                 error!("test_by_file ended in error: {e:?}");
-                false
-            }
-        };
-
-        assert!(result, "See error above");
-    }
-
-    #[test]
-    fn test_by_file_with_image() {
-        crate::grit_test::set_test_logging(LOG_LEVEL);
-
-        let td: TempDir = crate::grit_test::init_repo();
-
-        let args = ByFileArgs::new(
-            td.path().to_str().unwrap().to_string(),
-            "README.md".to_string(),
-            Some(String::from("target/to_file.svg")),
-            true,
-            true,
-            None,
-        );
-
-        let bf = ByFile::new(args);
-
-        let result = match bf.process() {
-            Ok(()) => true,
-            Err(e) => {
-                error!("test_by_file_with_image ended in error: {e:?}");
                 false
             }
         };

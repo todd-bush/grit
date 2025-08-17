@@ -124,18 +124,6 @@ pub struct ByDateCommand {
     file: Option<String>,
 
     #[arg(
-        long = "image",
-        help = "creates an image for the graph.  file is required"
-    )]
-    image: bool,
-
-    #[arg(
-        long = "html",
-        help = "creates a HTML file to about visualize the SVG output"
-    )]
-    html: bool,
-
-    #[arg(
         long = "ignore-weekends",
         help = "ignore weekends when calculating # of commits"
     )]
@@ -153,10 +141,8 @@ impl ByDateCommand {
         let bydate_args = ByDateArgs::new(
             String::from("."),
             self.file.clone(),
-            self.image,
             self.ignore_weekends,
             self.ignore_gap_fill,
-            self.html,
             None,
         );
         ByDate::new(bydate_args).process()?;
@@ -178,18 +164,6 @@ pub struct ByFileCommand {
     file: Option<String>,
 
     #[arg(
-        long = "image",
-        help = "creates an image for the graph.  file is required"
-    )]
-    image: bool,
-
-    #[arg(
-        long = "html",
-        help = "creates a HTML file to about visualize the SVG output"
-    )]
-    html: bool,
-
-    #[arg(
         long = "restrict-author",
         help = "comma delimited of author's names to restrict"
     )]
@@ -202,8 +176,6 @@ impl ByFileCommand {
             String::from("."),
             self.in_file.clone().unwrap(),
             self.file.clone(),
-            self.image,
-            self.html,
             self.restrict_author.clone(),
         );
         ByFile::new(byfile_args).process()?;
