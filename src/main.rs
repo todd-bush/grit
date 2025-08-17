@@ -1,8 +1,8 @@
 //! grit
 //! Usage:
 //! grit fame [--sort=<field>] [--start-days-back=<int>] [--end-days-back=<int>] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
-//! grit bydate [--start-days-back=<int>] [--end-days-back=<int>] [--file=<string>] [--image] [--html] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
-//! grit byfile [--in-file=<string>] [--file=<string>] [--image] [--html] [--verbose] [--debug]
+//! grit bydate [--start-days-back=<int>] [--end-days-back=<int>] [--file=<string>] [--ignore-weekends] [--ignore-gap-fill] [--verbose] [--debug]
+//! grit byfile [--in-file=<string>] [--file=<string>] [--verbose] [--debug]
 //! grit effort [--start-days-back=<int>] [--end-days-back=<int>] [--table] [--include=<string>] [--exclude=<string>] [--verbose] [--debug]
 //!
 //! Options:
@@ -13,10 +13,8 @@
 //! --end-days-back=<int>       end date in days back from today.
 //! --include=<string>          comma delimited, glob file path to include path1/*,path2/*
 //! --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
-//! --file=<string>             output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg
+//! --file=<string>             output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg.  If using html flag, file name needs to be *.html
 //! --in-file=<string>          input file for by_file
-//! --image                     creates an image for the by_date & by_file graph.  file is required
-//! --html                      creates a HTML file to about visualize the SVG output
 //! --table                     display as a table to stdout
 //! --ignore-weekends           ignore weekends when calculating # of commits
 //! --ignore-gap-fill           ignore filling empty dates with 0 commits
@@ -25,7 +23,6 @@
 #[macro_use]
 extern crate log;
 extern crate anyhow;
-extern crate charts_rs;
 extern crate chrono;
 extern crate clap;
 extern crate csv;

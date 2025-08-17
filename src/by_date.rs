@@ -1,7 +1,6 @@
 use super::Processable;
 use crate::utils::grit_utils;
 use anyhow::{Context, Result};
-use charts_rs::{LineChart, Series};
 use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Weekday};
 use git2::Repository;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -16,10 +15,8 @@ use std::ops::Add;
 pub struct ByDateArgs {
     path: String,
     file: Option<String>,
-    image: bool,
     ignore_weekends: bool,
     ignore_gap_fill: bool,
-    html: bool,
     restrict_authors: Option<String>,
 }
 
@@ -27,19 +24,15 @@ impl ByDateArgs {
     pub fn new(
         path: String,
         file: Option<String>,
-        image: bool,
         ignore_weekends: bool,
         ignore_gap_fill: bool,
-        html: bool,
         restrict_authors: Option<String>,
     ) -> Self {
         Self {
             path,
             file,
-            image,
             ignore_weekends,
             ignore_gap_fill,
-            html,
             restrict_authors,
         }
     }
@@ -178,74 +171,12 @@ impl ByDate {
 
         Ok(())
     }
-
-    /// Creates a chart from the commit data
-    fn create_chart(&self, output: Vec<CommitDay>) -> Result<()> {
-        let file = self
-            .args
-            .file
-            .clone()
-            .unwrap_or_else(|| "commits.svg".to_string());
-        let (width, height) = self.calculate_chart_dimensions(output.len());
-        let margins = (90, 40, 50, 60);
-
-        let dates: Vec<String> = output
-            .iter()
-            .map(|d| grit_utils::format_date(d.date))
-            .collect();
-
-        let chart_data: Vec<Series> = BTreeMap::from_iter(output)
-            .iter()
-            .map(|(k, v)| Series::new(k.clone(), v.clone()))
-            .collect();
-
-        let mut chart = LineChart::new_with_theme(chart_data, dates, "chaulk");
-        self.configure_chart(&mut chart, width, height, margins);
-
-        if self.args.html {
-            grit_utils::create_html(&file)?;
-        }
-
-        Ok(())
-    }
-
-    /// Calculates appropriate chart dimensions based on data size
-    fn calculate_chart_dimensions(&self, data_points: usize) -> (u32, u32) {
-        match data_points {
-            n if n > 60 => (1920, 960),
-            n if n > 35 => (1280, 960),
-            _ => (1027, 768),
-        }
-    }
-
-    /// Configures chart properties
-    fn configure_chart(
-        &self,
-        chart: &mut LineChart,
-        width: u32,
-        height: u32,
-        margins: (u32, u32, u32, u32),
-    ) {
-        chart.width = width as f32;
-        chart.height = height as f32;
-        chart.margin.top = margins.0 as f32;
-        chart.margin.right = margins.1 as f32;
-        chart.margin.bottom = margins.2 as f32;
-        chart.margin.left = margins.3 as f32;
-        chart.title_text = "By Date".to_string();
-    }
 }
 
 impl Processable<()> for ByDate {
     fn process(&self) -> Result<()> {
         let output = self.process_commits()?;
-
-        if self.args.image {
-            self.create_chart(output)?;
-        } else {
-            self.display_text_output(output)?;
-        }
-
+        self.display_text_output(output)?;
         Ok(())
     }
 }
@@ -267,7 +198,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let args = ByDateArgs::new(String::from(path), None, false, false, false, false, None);
+        let args = ByDateArgs::new(String::from(path), None, false, false, None);
 
         let bd = ByDate::new(args);
 
@@ -295,7 +226,7 @@ mod tests {
 
         let start = Instant::now();
 
-        let args = ByDateArgs::new(String::from(path), None, false, true, true, false, None);
+        let args = ByDateArgs::new(String::from(path), None, true, false, None);
 
         let bd = ByDate::new(args);
 
@@ -319,7 +250,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let args = ByDateArgs::new(String::from(path), None, false, false, false, false, None);
+        let args = ByDateArgs::new(String::from(path), None, false, false, None);
 
         let bd = ByDate::new(args);
 
@@ -351,8 +282,6 @@ mod tests {
             None,
             false,
             false,
-            false,
-            false,
             Some(String::from("todd-bush-ln")),
         );
 
@@ -375,7 +304,7 @@ mod tests {
         let td: TempDir = crate::grit_test::init_repo();
         let path = td.path().to_str().unwrap();
 
-        let args = ByDateArgs::new(String::from(path), None, true, true, true, false, None);
+        let args = ByDateArgs::new(String::from(path), None, true, true, None);
 
         let start = Instant::now();
 
@@ -398,7 +327,7 @@ mod tests {
     fn test_is_weekend() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
-        let args = ByDateArgs::new(String::from("path"), None, true, true, true, false, None);
+        let args = ByDateArgs::new(String::from("path"), None, true, true, None);
 
         let bd = ByDate::new(args);
 
@@ -425,7 +354,7 @@ mod tests {
     fn test_fill_date_gaps() {
         crate::grit_test::set_test_logging(LOG_LEVEL);
 
-        let args = ByDateArgs::new(String::from("path"), None, true, true, true, false, None);
+        let args = ByDateArgs::new(String::from("path"), None, true, true, None);
 
         let bd = ByDate::new(args);
 
