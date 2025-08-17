@@ -4,7 +4,7 @@ Grit is a git repository analyzer written in [Rust](https://github.com/rust-lang
 
 [Fame](https://github.com/oleander/git-fame-rb) is based on the "git fame" functionality.
 
-# Output
+## Output
 
 ```grit bydate``` will create a csv of date and commit count to stdout or file.  Option to produce a SVG image.
 
@@ -14,9 +14,9 @@ Grit is a git repository analyzer written in [Rust](https://github.com/rust-lang
 
 ```git effort``` will output the # of commits and # of active dates for each file.  Default is CSV, option for a table.  This may take a while for repos with long commit history, consider using date ranges to reduce computation time.
 
-## Fame Example
+### Fame Example
 
-```
+```console
 Stats on Repo
 Total files: 6
 Total commits: 35
@@ -30,7 +30,6 @@ Total LOC: 958
 ```
 
 License
--------
 
 Dual-licensed to be compatible with the Rust project.
 
