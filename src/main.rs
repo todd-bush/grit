@@ -13,7 +13,7 @@
 //! --end-days-back=<int>       end date in days back from today.
 //! --include=<string>          comma delimited, glob file path to include path1/*,path2/*
 //! --exclude=<string>          comma delimited, glob file path to exclude path1/*,path2/*
-//! --file=<string>             output file for the by date file.  Sends to stdout by default.  If using image flag, file name needs to be *.svg.  If using html flag, file name needs to be *.html
+//! --file=<string>             output file for the by date file.  Sends to stdout by default.
 //! --in-file=<string>          input file for by_file
 //! --table                     display as a table to stdout
 //! --ignore-weekends           ignore weekends when calculating # of commits
