@@ -6,18 +6,20 @@ use crate::fame::{Fame, FameArgs};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
+fn parse_log_level(s: &str) -> Result<String, String> {
+    match s.to_lowercase().as_str() {
+        "error" | "warn" | "info" | "debug" | "trace" => Ok(s.to_string()),
+        _ => Err("Log level must be one of: error, warn, info, debug, trace".to_string()),
+    }
+}
+
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
     name: Option<String>,
 
-    /// Turn debugging information on
-    #[arg(short='d', long="debug", action = clap::ArgAction::SetTrue)]
-    pub debug: bool,
-
-    /// Enable verbose output
-    #[arg(short='v', long="verbose", action = clap::ArgAction::SetTrue)]
-    pub verbose: bool,
+    #[arg(short='l', long="log-level", help="set the log level", default_value = "info", value_parser = parse_log_level)]
+    pub log_level: Option<String>,
 
     #[command(subcommand)]
     pub command: Option<Commands>,
